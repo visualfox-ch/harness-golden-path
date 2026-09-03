@@ -1,0 +1,21 @@
+# Agent policy v1. Task creation is rejected when any boundary does not match.
+version: 1
+
+executors:
+  hermes_local:
+    routing_executor_aliases: [hermes_local_builder, hermes_local_reviewer]
+    allowed_task_classes: [docs_change, complex_code]
+    allowed_data_classes: [internal, confidential_local, confidential_cloud_approved]
+
+  hermes_nas:
+    routing_executor_aliases: [hermes_nas_operator]
+    allowed_task_classes: [read_only_monitor]
+    allowed_data_classes: [internal]
+
+task_classes:
+  docs_change:
+    required_approvals: [merge_main]
+  complex_code:
+    required_approvals: [merge_main]
+  read_only_monitor:
+    required_approvals: []

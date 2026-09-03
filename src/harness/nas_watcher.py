@@ -206,6 +206,8 @@ def build_pilot_task() -> dict:
         "correlation_id": correlation_id,
         "title": "P2-4 seven-day NAS read-only watcher pilot",
         "project": "harness-golden-path",
+        "task_class": "read_only_monitor",
+        "data_classification": "internal",
         "owner_role": "hermes_nas",
         "status": "ready",
         "objective": (

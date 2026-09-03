@@ -8,6 +8,7 @@ models:
     provider: deterministic
     connection_status: verified
     connection_evidence: "P2-4 allowlisted stdlib HTTP probes; no model invocation"
+    allowed_data_classes: [internal, confidential_local, confidential_cloud_approved]
     roles: [hermes_nas_operator]
     incremental_cost_chf: 0.00
     quota_tracked: false
@@ -18,6 +19,7 @@ models:
     provider: anthropic
     connection_status: verified
     connection_evidence: "Claude Max Abo (stripe_subscription, claude_max, Tier 5x), 2026-09-03"
+    allowed_data_classes: [internal, confidential_cloud_approved]
     roles: [anthropic_coder, reviewer]
     incremental_cost_chf: 0.00
     quota_tracked: true

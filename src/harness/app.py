@@ -24,9 +24,12 @@ from .auth import (
 )
 from .policy import (
     PolicyError,
-    assert_route_allowed,
+    assert_task_allowed,
+    load_agent_policy,
     load_catalog,
+    load_data_policy,
     load_routing_policy,
+    load_task_authority_policy,
 )
 from .resilience import ResilienceDecision, ResilienceSnapshot
 from .store import NotFoundError, OwnershipError, Store, StoreError, TransitionError
@@ -74,6 +77,9 @@ def create_app(
     auth = authorizer or TokenAuthorizer.from_environment()
     catalog = load_catalog()
     routing_policy = load_routing_policy()
+    agent_policy = load_agent_policy()
+    data_policy = load_data_policy()
+    task_authority_policy = load_task_authority_policy()
 
     @app.middleware("http")
     async def authorize(request: Request, call_next):
@@ -101,7 +107,14 @@ def create_app(
     @app.post("/v1/tasks", status_code=201)
     def create_task(card: TaskCardV1) -> dict:
         try:
-            assert_route_allowed(card.model_routing, catalog)
+            assert_task_allowed(
+                card,
+                catalog,
+                routing_policy,
+                agent_policy,
+                data_policy,
+                task_authority_policy,
+            )
         except PolicyError as exc:
             raise HTTPException(status_code=403, detail=str(exc)) from exc
         task, created = st.create_task(card)

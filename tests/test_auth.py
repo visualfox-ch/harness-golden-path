@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 
 from harness.app import create_app
 from harness.auth import TokenAuthorizer
-from harness.contracts import ExecutorRole
+from harness.contracts import ExecutorRole, ModelRouting, ProviderClass
 
 
 def _secured_client(store, tmp_path, monkeypatch):
@@ -34,7 +34,15 @@ def test_nas_token_is_limited_to_its_role(
         "/v1/tasks", json={}, headers=_bearer("w" * 48)
     ).status_code == 403
 
-    card = card_factory(owner_role=ExecutorRole.HERMES_NAS)
+    card = card_factory(
+        owner_role=ExecutorRole.HERMES_NAS,
+        task_class="read_only_monitor",
+        approval_required=[],
+        model_routing=ModelRouting(
+            permitted_provider_classes=[ProviderClass.LOCAL_MODEL],
+            default_route=["deterministic_monitor"],
+        ),
+    )
     created = client.post(
         "/v1/tasks",
         json=card.model_dump(mode="json"),
@@ -73,7 +81,15 @@ def test_token_rotation_revokes_old_worker_token_immediately(
     store, card_factory, tmp_path, monkeypatch
 ):
     client, _, worker = _secured_client(store, tmp_path, monkeypatch)
-    card = card_factory(owner_role=ExecutorRole.HERMES_NAS)
+    card = card_factory(
+        owner_role=ExecutorRole.HERMES_NAS,
+        task_class="read_only_monitor",
+        approval_required=[],
+        model_routing=ModelRouting(
+            permitted_provider_classes=[ProviderClass.LOCAL_MODEL],
+            default_route=["deterministic_monitor"],
+        ),
+    )
     client.post(
         "/v1/tasks",
         json=card.model_dump(mode="json"),

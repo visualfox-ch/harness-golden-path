@@ -92,6 +92,13 @@ class ProviderClass(str, Enum):
     API_METERED = "api_metered"
 
 
+class DataClassification(str, Enum):
+    INTERNAL = "internal"
+    CONFIDENTIAL_LOCAL = "confidential_local"
+    CONFIDENTIAL_CLOUD_APPROVED = "confidential_cloud_approved"
+    SECRET = "secret"
+
+
 class FailureClass(str, Enum):
     TRANSIENT = "transient"
     RATE_LIMITED = "rate_limited"
@@ -146,6 +153,10 @@ class TaskCardV1(StrictModel):
     correlation_id: UUID = Field(default_factory=uuid4)
     title: Annotated[str, Field(min_length=8, max_length=160)]
     project: Annotated[str, Field(pattern=r"^[a-zA-Z0-9._-]{2,80}$")]
+    task_class: Annotated[
+        str, Field(pattern=r"^[a-z][a-z0-9_]{2,79}$")
+    ] = "docs_change"
+    data_classification: DataClassification = DataClassification.INTERNAL
     owner_role: ExecutorRole
     status: Literal[TaskStatus.READY] = TaskStatus.READY
     objective: Annotated[str, Field(min_length=20, max_length=4000)]
