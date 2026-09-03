@@ -2,7 +2,13 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
-from harness.contracts import TaskStatus
+from harness.contracts import (
+    CostReceipt,
+    ExecutorRole,
+    ProviderClass,
+    ResultReceiptV1,
+    TaskStatus,
+)
 from harness.store import OwnershipError, Store, TransitionError
 
 
@@ -70,3 +76,28 @@ def test_invalid_transition_is_rejected(store, card_factory):
     store.create_task(card)
     with pytest.raises(TransitionError):
         store.transition(card.task_id, TaskStatus.DONE)
+
+
+def test_completed_task_without_approval_finishes_directly(store, card_factory):
+    card = card_factory(
+        owner_role=ExecutorRole.HERMES_NAS,
+        approval_required=[],
+    )
+    store.create_task(card)
+    store.claim(card.task_id, "hermes_nas", "svc-hermes-nas:p2-4")
+    result = store.submit_receipt(
+        ResultReceiptV1(
+            task_id=card.task_id,
+            correlation_id=card.correlation_id,
+            worker_instance="svc-hermes-nas:p2-4",
+            outcome="completed",
+            summary="Read-only watcher pilot completed without side effects.",
+            cost_receipt=CostReceipt(
+                provider_class=ProviderClass.LOCAL_MODEL,
+                model_ref="deterministic_monitor",
+                subscription_quota_consumed=False,
+                quota_status="unavailable",
+            ),
+        )
+    )
+    assert result["status"] == "done"

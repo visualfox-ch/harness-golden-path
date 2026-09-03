@@ -711,8 +711,13 @@ class Store:
             if current == TaskStatus.CLAIMED:
                 self._set_status(conn, receipt.task_id, current, TaskStatus.IN_PROGRESS)
                 current = TaskStatus.IN_PROGRESS
+            completed_target = (
+                TaskStatus.REVIEW
+                if task["approval_required"]
+                else TaskStatus.DONE
+            )
             target = {
-                "completed": TaskStatus.REVIEW,
+                "completed": completed_target,
                 "failed": TaskStatus.FAILED,
                 "blocked": TaskStatus.BLOCKED,
             }[receipt.outcome]

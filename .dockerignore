@@ -1,0 +1,12 @@
+.git
+.github
+.venv
+.pytest_cache
+__pycache__
+*.pyc
+*.egg-info
+tests
+evidence
+workflows
+.DS_Store
+uv.lock

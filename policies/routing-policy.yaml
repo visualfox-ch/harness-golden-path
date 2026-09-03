@@ -10,6 +10,12 @@ defaults:
   quota_exhaustion_action: awaiting_decision
 
 classes:
+  read_only_monitor:
+    executor: hermes_nas_operator
+    route:
+      - deterministic_monitor
+    quality_gate: heartbeat_and_timestamped_report
+
   docs_change:
     executor: hermes_local_builder
     route:
