@@ -15,3 +15,37 @@ classes:
     route:
       - anthropic_oauth_reasoner
     quality_gate: lint_and_targeted_tests
+
+  # Weitere Klassen fuer den Feature-Delivery-Workflow (P1-4).
+  # Alle zeigen bewusst auf dieselbe, einzige verifizierte Route
+  # (anthropic_oauth_reasoner) — sobald weitere Routen in P0-1/T1/T3/T4
+  # verifiziert sind, werden hier zusaetzliche Kandidaten ergaenzt.
+  context_pack:
+    executor: panda_orchestrator
+    route:
+      - anthropic_oauth_reasoner
+    quality_gate: none
+
+  scope_risk_route:
+    executor: panda_orchestrator
+    route:
+      - anthropic_oauth_reasoner
+    quality_gate: none
+
+  complex_code:
+    executor: hermes_local_builder
+    route:
+      - anthropic_oauth_reasoner
+    quality_gate: ci_and_review
+
+  review:
+    executor: hermes_local_reviewer
+    route:
+      - anthropic_oauth_reasoner
+    quality_gate: none
+
+  knowledge_capture:
+    executor: panda_orchestrator
+    route:
+      - anthropic_oauth_reasoner
+    quality_gate: none
