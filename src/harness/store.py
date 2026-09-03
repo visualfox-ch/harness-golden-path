@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
+from pathlib import Path
 from uuid import UUID, uuid4
 
 import psycopg
@@ -167,7 +168,13 @@ class Store:
         self.url = url or os.environ.get("HARNESS_DATABASE_URL", DEFAULT_URL)
 
     def _connect(self) -> psycopg.Connection:
-        return psycopg.connect(self.url, row_factory=dict_row)
+        password_file = os.environ.get("HARNESS_DATABASE_PASSWORD_FILE")
+        password = None
+        if password_file:
+            password = Path(password_file).read_text(encoding="utf-8").strip()
+            if not password:
+                raise StoreError("database password file is empty")
+        return psycopg.connect(self.url, password=password, row_factory=dict_row)
 
     def init_db(self) -> None:
         with self._connect() as conn:
@@ -711,8 +718,13 @@ class Store:
             if current == TaskStatus.CLAIMED:
                 self._set_status(conn, receipt.task_id, current, TaskStatus.IN_PROGRESS)
                 current = TaskStatus.IN_PROGRESS
+            completed_target = (
+                TaskStatus.REVIEW
+                if task["approval_required"]
+                else TaskStatus.DONE
+            )
             target = {
-                "completed": TaskStatus.REVIEW,
+                "completed": completed_target,
                 "failed": TaskStatus.FAILED,
                 "blocked": TaskStatus.BLOCKED,
             }[receipt.outcome]

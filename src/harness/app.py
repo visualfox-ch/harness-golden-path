@@ -3,7 +3,8 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
 from .contracts import (
@@ -14,6 +15,13 @@ from .contracts import (
     TaskStatus,
 )
 from .cockpit import CockpitSnapshot
+from .auth import (
+    AuthenticationError,
+    AuthorizationError,
+    Principal,
+    TokenAuthorizer,
+    required_scope,
+)
 from .policy import (
     PolicyError,
     assert_route_allowed,
@@ -56,12 +64,31 @@ def _to_http(exc: StoreError) -> HTTPException:
     return HTTPException(status_code=409, detail=str(exc))
 
 
-def create_app(store: Store | None = None) -> FastAPI:
+def create_app(
+    store: Store | None = None,
+    authorizer: TokenAuthorizer | None = None,
+) -> FastAPI:
     app = FastAPI(title="control-harness-golden-path", version="0.1.0")
     st = store or Store()
     st.init_db()
+    auth = authorizer or TokenAuthorizer.from_environment()
     catalog = load_catalog()
     routing_policy = load_routing_policy()
+
+    @app.middleware("http")
+    async def authorize(request: Request, call_next):
+        scope = required_scope(request.method, request.url.path)
+        if scope is None:
+            return await call_next(request)
+        try:
+            request.state.harness_principal = auth.authenticate(
+                request.headers.get("Authorization"), scope
+            )
+        except AuthenticationError as exc:
+            return JSONResponse(status_code=401, content={"detail": str(exc)})
+        except AuthorizationError as exc:
+            return JSONResponse(status_code=403, content={"detail": str(exc)})
+        return await call_next(request)
 
     @app.get("/health")
     def health() -> dict:
@@ -81,14 +108,17 @@ def create_app(store: Store | None = None) -> FastAPI:
         return {"task": task, "created": created}
 
     @app.get("/v1/tasks/{task_id}")
-    def get_task(task_id: UUID) -> dict:
+    def get_task(task_id: UUID, request: Request) -> dict:
         try:
-            return st.get_task(task_id)
+            task = st.get_task(task_id)
         except StoreError as exc:
             raise _to_http(exc) from exc
+        _enforce_nas_task_access(request, task)
+        return task
 
     @app.post("/v1/tasks/{task_id}/claim")
-    def claim(task_id: UUID, body: ClaimRequest) -> dict:
+    def claim(task_id: UUID, body: ClaimRequest, request: Request) -> dict:
+        _enforce_nas_worker(request, body.owner_role, body.worker_id)
         row = st.claim(task_id, body.owner_role, body.worker_id, body.lease_minutes)
         if row is None:
             raise HTTPException(
@@ -98,14 +128,16 @@ def create_app(store: Store | None = None) -> FastAPI:
         return row
 
     @app.post("/v1/tasks/{task_id}/heartbeat")
-    def heartbeat(task_id: UUID, body: HeartbeatRequest) -> dict:
+    def heartbeat(task_id: UUID, body: HeartbeatRequest, request: Request) -> dict:
+        _enforce_nas_worker(request, "hermes_nas", body.worker_id)
         try:
             return st.heartbeat(task_id, body.worker_id, body.lease_minutes)
         except StoreError as exc:
             raise _to_http(exc) from exc
 
     @app.post("/v1/tasks/{task_id}/receipts")
-    def receipts(task_id: UUID, receipt: ResultReceiptV1) -> dict:
+    def receipts(task_id: UUID, receipt: ResultReceiptV1, request: Request) -> dict:
+        _enforce_nas_worker(request, "hermes_nas", receipt.worker_instance)
         if receipt.task_id != task_id:
             raise HTTPException(status_code=422, detail="task_id mismatch")
         try:
@@ -118,8 +150,9 @@ def create_app(store: Store | None = None) -> FastAPI:
         response_model=ResilienceDecision,
     )
     def report_failure(
-        task_id: UUID, report: FailureReportV1
+        task_id: UUID, report: FailureReportV1, request: Request
     ) -> ResilienceDecision:
+        _enforce_nas_worker(request, "hermes_nas", report.worker_instance)
         if report.task_id != task_id:
             raise HTTPException(status_code=422, detail="task_id mismatch")
         try:
@@ -166,6 +199,28 @@ def create_app(store: Store | None = None) -> FastAPI:
         return st.resilience_snapshot()
 
     return app
+
+
+def _principal(request: Request) -> Principal:
+    return getattr(
+        request.state,
+        "harness_principal",
+        Principal("development", "development", frozenset({"*"})),
+    )
+
+
+def _enforce_nas_worker(request: Request, owner_role: str, worker_id: str) -> None:
+    principal = _principal(request)
+    if principal.role != "hermes_nas":
+        return
+    if owner_role != "hermes_nas" or not worker_id.startswith("svc-hermes-nas:"):
+        raise HTTPException(status_code=403, detail="NAS identity is read-only worker scoped")
+
+
+def _enforce_nas_task_access(request: Request, task: dict) -> None:
+    principal = _principal(request)
+    if principal.role == "hermes_nas" and task["owner_role"] != "hermes_nas":
+        raise HTTPException(status_code=403, detail="NAS identity cannot read other roles")
 
 
 app = create_app()

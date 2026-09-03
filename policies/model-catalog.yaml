@@ -3,6 +3,16 @@
 version: 1
 
 models:
+  deterministic_monitor:
+    provider_class: local_model
+    provider: deterministic
+    connection_status: verified
+    connection_evidence: "P2-4 allowlisted stdlib HTTP probes; no model invocation"
+    roles: [hermes_nas_operator]
+    incremental_cost_chf: 0.00
+    quota_tracked: false
+    quota_visibility: unavailable
+
   anthropic_oauth_reasoner:
     provider_class: subscription_oauth
     provider: anthropic

@@ -49,6 +49,7 @@ TRANSITIONS: dict[TaskStatus, set[TaskStatus]] = {
     },
     TaskStatus.IN_PROGRESS: {
         TaskStatus.REVIEW,
+        TaskStatus.DONE,
         TaskStatus.BLOCKED,
         TaskStatus.FAILED,
         TaskStatus.RECOVERY_REQUIRED,
@@ -108,7 +109,7 @@ class SideEffectState(str, Enum):
 
 
 class Budget(StrictModel):
-    max_runtime_minutes: Annotated[int, Field(ge=1, le=480)]
+    max_runtime_minutes: Annotated[int, Field(ge=1, le=10080)]
     max_attempts: Annotated[int, Field(ge=1, le=5)] = 2
     max_incremental_cloud_cost_chf: Annotated[float, Field(ge=0, le=0)] = 0.0
 
@@ -155,6 +156,12 @@ class TaskCardV1(StrictModel):
     idempotency_key: Annotated[str, Field(min_length=16, max_length=128)]
     approval_required: list[Annotated[str, Field(min_length=3, max_length=80)]] = []
     created_at: datetime = Field(default_factory=utcnow)
+
+    @model_validator(mode="after")
+    def restrict_long_running_tasks_to_nas(self) -> "TaskCardV1":
+        if self.budget.max_runtime_minutes > 480 and self.owner_role != ExecutorRole.HERMES_NAS:
+            raise ValueError("only hermes_nas tasks may run longer than 480 minutes")
+        return self
 
 
 class Artifacts(StrictModel):

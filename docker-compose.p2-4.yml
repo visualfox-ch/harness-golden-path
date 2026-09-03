@@ -1,0 +1,126 @@
+name: harness-p2-4
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: harness
+      POSTGRES_USER: harness
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    volumes:
+      - harness_pilot_data:/var/lib/postgresql/data
+    networks:
+      - control
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U harness -d harness"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  harness-api:
+    image: harness-p2-4:${PILOT_IMAGE_TAG:?PILOT_IMAGE_TAG is required}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    environment:
+      HARNESS_AUTH_REQUIRED: "1"
+      HARNESS_DATABASE_URL: postgresql://harness@postgres:5432/harness
+      HARNESS_DATABASE_PASSWORD_FILE: /run/secrets/postgres_password
+      HARNESS_ORCHESTRATOR_TOKEN_FILE: /run/secrets/orchestrator_token
+      HARNESS_NAS_WORKER_TOKEN_FILE: /run/secrets/nas_worker_token
+    secrets:
+      - postgres_password
+      - orchestrator_token
+      - nas_worker_token
+    ports:
+      - "127.0.0.1:18787:8787"
+    networks:
+      - control
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/health', timeout=3)"
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  watcher:
+    image: harness-p2-4:${PILOT_IMAGE_TAG:?PILOT_IMAGE_TAG is required}
+    restart: "on-failure:5"
+    command: ["python", "-m", "harness.nas_watcher", "run"]
+    read_only: true
+    tmpfs:
+      - /tmp:size=8m,mode=1777
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    environment:
+      HARNESS_BASE_URL: http://harness-api:8787
+      HARNESS_NAS_WORKER_TOKEN_FILE: /run/secrets/nas_worker_token
+      HARNESS_TASK_ID: ${HARNESS_TASK_ID:?HARNESS_TASK_ID is required}
+      HARNESS_WORKER_ID: svc-hermes-nas:p2-4
+      HARNESS_LEASE_MINUTES: "10"
+      PILOT_END_AT: ${PILOT_END_AT:?PILOT_END_AT is required}
+      PILOT_INTERVAL_SECONDS: ${PILOT_INTERVAL_SECONDS:-300}
+    secrets:
+      - nas_worker_token
+    networks:
+      - control
+      - egress
+    depends_on:
+      harness-api:
+        condition: service_healthy
+
+  seed:
+    profiles: [operator]
+    image: harness-p2-4:${PILOT_IMAGE_TAG:?PILOT_IMAGE_TAG is required}
+    command: ["python", "-m", "harness.nas_watcher", "seed"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      HARNESS_BASE_URL: http://harness-api:8787
+      HARNESS_ORCHESTRATOR_TOKEN_FILE: /run/secrets/orchestrator_token
+      HARNESS_TASK_ID: ${HARNESS_TASK_ID:?HARNESS_TASK_ID is required}
+      HARNESS_CORRELATION_ID: ${HARNESS_CORRELATION_ID:?HARNESS_CORRELATION_ID is required}
+    secrets:
+      - orchestrator_token
+    networks:
+      - control
+    depends_on:
+      harness-api:
+        condition: service_healthy
+
+networks:
+  control:
+    internal: true
+  egress: {}
+
+volumes:
+  harness_pilot_data: {}
+
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password
+  orchestrator_token:
+    file: ./secrets/orchestrator_token
+  nas_worker_token:
+    file: ./secrets/nas_worker_token
