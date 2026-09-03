@@ -1,0 +1,30 @@
+# F8 contract: one runtime authority, one-way task projections.
+version: 1
+authoritative_system: control_harness
+
+accepted_inputs:
+  pandaos:
+    - create_task_intent
+    - submit_human_approval
+
+authoritative_runtime_fields:
+  - status
+  - owner_instance
+  - attempt_count
+  - lease_expires_at
+  - next_attempt_at
+  - last_failure_class
+  - approvals
+  - receipts
+
+projections:
+  pandaos_session_tasks:
+    mode: read_only_projection
+    runtime_status_writeback: forbidden
+    update_source: harness_events
+    drift_action: mark_projection_stale
+
+conflict_policy:
+  winner: control_harness
+  automatic_reverse_sync: forbidden
+  action: emit_projection_drift_event

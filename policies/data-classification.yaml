@@ -1,0 +1,29 @@
+# Data policy v1. Secrets are references only and never valid task content.
+version: 1
+
+classifications:
+  internal:
+    description: Non-public project context with no sensitive personal or credential data.
+    allowed_provider_classes: [local_model, subscription_oauth]
+    examples: [repository documentation, public CI metadata, task status]
+
+  confidential_local:
+    description: Sensitive content that must remain on locally controlled compute.
+    allowed_provider_classes: [local_model]
+    examples: [private operational exports, unapproved customer material]
+
+  confidential_cloud_approved:
+    description: Sensitive content explicitly approved for a verified subscription OAuth route.
+    allowed_provider_classes: [local_model, subscription_oauth]
+    examples: [approved private source excerpt, approved internal design context]
+
+  secret:
+    description: Credentials, private keys, bearer tokens, and recovery material.
+    allowed_provider_classes: []
+    transport: references_only
+    examples: [credential reference, secret variable name]
+
+provider_classes:
+  local_model: [internal, confidential_local, confidential_cloud_approved]
+  subscription_oauth: [internal, confidential_cloud_approved]
+  api_metered: []
