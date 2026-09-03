@@ -28,3 +28,14 @@ uvicorn harness.app:app --port 8787
 ```
 
 `harness_dev` ist ein lokales Wegwerf-Passwort für den Dev-Container, kein Secret.
+
+## Golden Path Status
+
+Der erste End-to-End-Durchlauf (DEV-001, 2026-09-03) hat den vollständigen
+Pfad TaskCard → atomarer Claim/Lease → isolierter Worktree → Docs-Änderung →
+gezielte Tests → Pull Request → CI → ResultReceipt → Approval-Gate durchlaufen.
+
+Verifizierte Gates: 17/17 Harness-Tests grün, direkter Push auf `main` wird
+durch das Ruleset abgewiesen (GH013), Merge erfolgt ausschliesslich nach
+menschlicher Freigabe über eine ApprovalCard. Modellroute: ausschliesslich
+`anthropic_oauth_reasoner` (subscription_oauth, inkrementelle Kosten 0.00 CHF).
