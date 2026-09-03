@@ -25,8 +25,8 @@ jobs:
     env:
       HARNESS_DATABASE_URL: postgresql://harness:harness_dev@localhost:5432/harness
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
       - run: pip install -e '.[dev]'
