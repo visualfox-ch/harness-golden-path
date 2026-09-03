@@ -3,6 +3,8 @@ from fastapi.testclient import TestClient
 from harness.app import create_app
 from harness.contracts import (
     CostReceipt,
+    FailureClass,
+    FailureReportV1,
     ResultReceiptV1,
     ValidationResult,
 )
@@ -44,8 +46,20 @@ def test_metrics_aggregate_first_pass_retry_and_route_evidence(store, card_facto
     retried_card = card_factory()
     store.create_task(retried_card)
     store.claim(retried_card.task_id, "hermes_local", "retry-worker")
-    store.heartbeat(retried_card.task_id, "retry-worker", lease_minutes=0)
-    store.expire_leases()
+    store.report_failure(
+        FailureReportV1(
+            task_id=retried_card.task_id,
+            correlation_id=retried_card.correlation_id,
+            worker_instance="retry-worker",
+            failure_class=FailureClass.TRANSIENT,
+            reason="Controlled transient failure before the second attempt.",
+        )
+    )
+    with store._connect() as conn:
+        conn.execute(
+            "UPDATE agent_tasks SET next_attempt_at=now() - interval '1 second'"
+        )
+    store.release_due_retries()
     store.claim(retried_card.task_id, "hermes_local", "retry-worker")
     store.submit_receipt(
         ResultReceiptV1(
