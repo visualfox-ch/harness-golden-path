@@ -18,12 +18,14 @@ from psycopg.types.json import Json
 from .contracts import (
     TRANSITIONS,
     ApprovalCardV1,
+    EventEnvelopeV1,
     FailureClass,
     FailureReportV1,
     ResultReceiptV1,
     SideEffectState,
     TaskCardV1,
     TaskStatus,
+    utcnow,
 )
 from .cockpit import CockpitSnapshot, build_cockpit_snapshot
 from .metrics import QualityMetricsSnapshot, build_quality_metrics_snapshot
@@ -229,6 +231,14 @@ class Store:
 
     @staticmethod
     def _event(conn, task_id, correlation_id, event_type: str, payload: dict) -> None:
+        EventEnvelopeV1(
+            event_id=0,
+            task_id=task_id,
+            correlation_id=correlation_id,
+            event_type=event_type,
+            payload=payload,
+            created_at=utcnow(),
+        )
         conn.execute(
             "INSERT INTO agent_events (task_id, correlation_id, event_type, payload)"
             " VALUES (%s, %s, %s, %s)",
