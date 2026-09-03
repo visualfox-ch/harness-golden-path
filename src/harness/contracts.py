@@ -120,6 +120,55 @@ class SideEffectState(str, Enum):
     UNKNOWN = "unknown"
 
 
+class HarnessEventType(str, Enum):
+    TASK_CREATED = "task_created"
+    TASK_CLAIMED = "task_claimed"
+    STATUS_CHANGED = "status_changed"
+    HEARTBEAT_REJECTED = "heartbeat_rejected"
+    LEASE_EXPIRED = "lease_expired"
+    FAILURE_CLASSIFIED = "failure_classified"
+    RECOVERY_CARD_CREATED = "recovery_card_created"
+    DEAD_LETTER_CREATED = "dead_letter_created"
+    RETRY_SCHEDULED = "retry_scheduled"
+    RETRY_RELEASED = "retry_released"
+    RECEIPT_REJECTED = "receipt_rejected"
+    RECEIPT_ACCEPTED = "receipt_accepted"
+    CIRCUIT_CLOSED = "circuit_closed"
+    APPROVAL_REQUESTED = "approval_requested"
+    APPROVAL_DECIDED = "approval_decided"
+
+
+EVENT_PAYLOAD_FIELDS: dict[HarnessEventType, frozenset[str]] = {
+    HarnessEventType.TASK_CREATED: frozenset({"title", "project"}),
+    HarnessEventType.TASK_CLAIMED: frozenset({"worker", "attempt"}),
+    HarnessEventType.STATUS_CHANGED: frozenset({"from", "to", "reason"}),
+    HarnessEventType.HEARTBEAT_REJECTED: frozenset({"worker"}),
+    HarnessEventType.LEASE_EXPIRED: frozenset({"action"}),
+    HarnessEventType.FAILURE_CLASSIFIED: frozenset(
+        {"failure_class", "side_effect_state", "circuit_key"}
+    ),
+    HarnessEventType.RECOVERY_CARD_CREATED: frozenset(
+        {"recovery_id", "trigger", "allowed_actions"}
+    ),
+    HarnessEventType.DEAD_LETTER_CREATED: frozenset(
+        {"dead_letter_id", "failure_class"}
+    ),
+    HarnessEventType.RETRY_SCHEDULED: frozenset(
+        {"retry_at", "delay_seconds", "attempt"}
+    ),
+    HarnessEventType.RETRY_RELEASED: frozenset({"next_attempt"}),
+    HarnessEventType.RECEIPT_REJECTED: frozenset({"reason", "worker"}),
+    HarnessEventType.RECEIPT_ACCEPTED: frozenset(
+        {"outcome", "status", "model_ref", "provider_class"}
+    ),
+    HarnessEventType.CIRCUIT_CLOSED: frozenset({"circuit_key"}),
+    HarnessEventType.APPROVAL_REQUESTED: frozenset({"approval_id", "action"}),
+    HarnessEventType.APPROVAL_DECIDED: frozenset(
+        {"approval_id", "decision", "decided_by"}
+    ),
+}
+
+
 class Budget(StrictModel):
     max_runtime_minutes: Annotated[int, Field(ge=1, le=10080)]
     max_attempts: Annotated[int, Field(ge=1, le=5)] = 2
@@ -265,6 +314,19 @@ class EventEnvelopeV1(StrictModel):
     event_id: int
     task_id: UUID
     correlation_id: UUID
-    event_type: Annotated[str, Field(min_length=3, max_length=80)]
-    payload: dict = {}
+    event_type: HarnessEventType
+    payload: dict[str, object] = Field(default_factory=dict)
     created_at: datetime
+
+    @model_validator(mode="after")
+    def enforce_registered_payload_shape(self) -> "EventEnvelopeV1":
+        expected = EVENT_PAYLOAD_FIELDS[self.event_type]
+        actual = set(self.payload)
+        missing = expected - actual
+        unexpected = actual - expected
+        if missing or unexpected:
+            raise ValueError(
+                f"event '{self.event_type.value}' payload drift: "
+                f"missing={sorted(missing)}, unexpected={sorted(unexpected)}"
+            )
+        return self
