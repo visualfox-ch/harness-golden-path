@@ -68,3 +68,5 @@ Tokens liegen nur in gemounteten Dateien und werden von der API pro Request neu
 gelesen. Rotation widerruft daher den bereits geladenen Worker-Token beim
 nächsten Heartbeat; der erwartete HTTP-401-Abbruch ist Teil des Pilotnachweises.
 Die API wird auf dem NAS ausschliesslich an `127.0.0.1:18787` veröffentlicht.
+Der timestamped Start- und Revocation-Nachweis steht unter
+[P2-4 NAS Read-only Pilot](evidence/p2-4-nas-readonly-pilot-start-2026-09-03.md).
