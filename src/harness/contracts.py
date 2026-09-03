@@ -99,6 +99,11 @@ class DataClassification(str, Enum):
     SECRET = "secret"
 
 
+class ProjectionKind(str, Enum):
+    OPERATIONAL = "operational"
+    EVIDENCE = "evidence"
+
+
 class FailureClass(str, Enum):
     TRANSIENT = "transient"
     RATE_LIMITED = "rate_limited"
@@ -157,6 +162,7 @@ class TaskCardV1(StrictModel):
         str, Field(pattern=r"^[a-z][a-z0-9_]{2,79}$")
     ] = "docs_change"
     data_classification: DataClassification = DataClassification.INTERNAL
+    projection_kind: ProjectionKind = ProjectionKind.OPERATIONAL
     owner_role: ExecutorRole
     status: Literal[TaskStatus.READY] = TaskStatus.READY
     objective: Annotated[str, Field(min_length=20, max_length=4000)]

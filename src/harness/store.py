@@ -36,6 +36,7 @@ from .resilience import (
     requires_recovery,
     retry_delay_seconds,
 )
+from .projection import PandaProjectionBatch, build_projection_batch
 
 DEFAULT_URL = "postgresql://harness:harness_dev@localhost:5433/harness"
 
@@ -185,6 +186,38 @@ class Store:
     ) -> CockpitSnapshot:
         with self._connect() as conn:
             return build_cockpit_snapshot(conn, catalog, routing_policy)
+
+    def pandaos_projection_snapshot(
+        self, after_event_id: int = 0, full: bool = False
+    ) -> PandaProjectionBatch:
+        """Return a consistent, read-only task projection at an event cutoff."""
+        with self._connect() as conn:
+            conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+            through_event_id = conn.execute(
+                "SELECT COALESCE(max(event_id), 0) AS value FROM agent_events"
+            ).fetchone()["value"]
+            rows = conn.execute(
+                """
+                WITH task_versions AS (
+                    SELECT task_id, max(event_id) AS source_event_id
+                    FROM agent_events
+                    WHERE event_id <= %s
+                    GROUP BY task_id
+                )
+                SELECT t.task_id, t.correlation_id, t.title, t.project,
+                       t.status, t.card, t.owner_instance, t.attempt_count,
+                       t.approval_required, t.next_attempt_at,
+                       t.last_failure_class, v.source_event_id
+                FROM agent_tasks t
+                JOIN task_versions v ON v.task_id = t.task_id
+                WHERE %s OR v.source_event_id > %s
+                ORDER BY v.source_event_id, t.task_id
+                """,
+                (through_event_id, full, after_event_id),
+            ).fetchall()
+        return build_projection_batch(
+            rows, 0 if full else after_event_id, through_event_id, full
+        )
 
     # -- Events ---------------------------------------------------------------
 

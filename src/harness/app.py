@@ -31,6 +31,7 @@ from .policy import (
     load_routing_policy,
     load_task_authority_policy,
 )
+from .projection import PandaProjectionBatch, ProjectionCursorError
 from .resilience import ResilienceDecision, ResilienceSnapshot
 from .store import NotFoundError, OwnershipError, Store, StoreError, TransitionError
 
@@ -103,6 +104,20 @@ def create_app(
     @app.get("/v1/operations/cockpit", response_model=CockpitSnapshot)
     def cockpit() -> CockpitSnapshot:
         return st.cockpit_snapshot(catalog, routing_policy)
+
+    @app.get(
+        "/v1/projections/pandaos",
+        response_model=PandaProjectionBatch,
+    )
+    def pandaos_projection(after_event_id: int = 0, full: bool = False):
+        if after_event_id < 0:
+            raise HTTPException(
+                status_code=422, detail="after_event_id must be non-negative"
+            )
+        try:
+            return st.pandaos_projection_snapshot(after_event_id, full)
+        except ProjectionCursorError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @app.post("/v1/tasks", status_code=201)
     def create_task(card: TaskCardV1) -> dict:
