@@ -145,7 +145,14 @@ def build_cockpit_snapshot(conn, catalog: dict, routing_policy: dict) -> Cockpit
           count(*) FILTER (
             WHERE status IN ('claimed', 'in_progress')
               AND lease_expires_at < now()
-          ) AS expired_active_lease_count
+          ) AS expired_active_lease_count,
+          (SELECT count(*) FROM dead_letters WHERE resolved_at IS NULL)
+              AS open_dead_letter_count,
+          (SELECT count(*) FROM recovery_cards WHERE status = 'open')
+              AS open_recovery_card_count,
+          (SELECT count(*) FROM circuit_breakers
+           WHERE state = 'open' AND open_until > now())
+              AS open_circuit_count
         FROM agent_tasks
         """
     ).fetchone()
@@ -218,7 +225,13 @@ def build_cockpit_snapshot(conn, catalog: dict, routing_policy: dict) -> Cockpit
             ),
             risks=CockpitPanel(
                 status="partial" if has_risk else "available",
-                sources=["agent_tasks.status", "agent_tasks.lease_expires_at"],
+                sources=[
+                    "agent_tasks.status",
+                    "agent_tasks.lease_expires_at",
+                    "dead_letters.resolved_at",
+                    "recovery_cards.status",
+                    "circuit_breakers.state",
+                ],
                 data=dict(risk_summary),
             ),
             knowledge=CockpitPanel(

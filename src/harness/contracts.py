@@ -33,6 +33,8 @@ class TaskStatus(str, Enum):
     DONE = "done"
     CANCELLED = "cancelled"
     RECOVERY_REQUIRED = "recovery_required"
+    RETRY_WAIT = "retry_wait"
+    AWAITING_DECISION = "awaiting_decision"
 
 
 TRANSITIONS: dict[TaskStatus, set[TaskStatus]] = {
@@ -42,12 +44,16 @@ TRANSITIONS: dict[TaskStatus, set[TaskStatus]] = {
         TaskStatus.BLOCKED,
         TaskStatus.FAILED,
         TaskStatus.RECOVERY_REQUIRED,
+        TaskStatus.RETRY_WAIT,
+        TaskStatus.AWAITING_DECISION,
     },
     TaskStatus.IN_PROGRESS: {
         TaskStatus.REVIEW,
         TaskStatus.BLOCKED,
         TaskStatus.FAILED,
         TaskStatus.RECOVERY_REQUIRED,
+        TaskStatus.RETRY_WAIT,
+        TaskStatus.AWAITING_DECISION,
     },
     TaskStatus.REVIEW: {TaskStatus.AWAITING_APPROVAL, TaskStatus.BLOCKED, TaskStatus.DONE},
     TaskStatus.AWAITING_APPROVAL: {TaskStatus.DONE, TaskStatus.BLOCKED},
@@ -57,6 +63,16 @@ TRANSITIONS: dict[TaskStatus, set[TaskStatus]] = {
         TaskStatus.READY,
         TaskStatus.BLOCKED,
         TaskStatus.DONE,
+        TaskStatus.CANCELLED,
+    },
+    TaskStatus.RETRY_WAIT: {
+        TaskStatus.READY,
+        TaskStatus.RECOVERY_REQUIRED,
+        TaskStatus.CANCELLED,
+    },
+    TaskStatus.AWAITING_DECISION: {
+        TaskStatus.READY,
+        TaskStatus.BLOCKED,
         TaskStatus.CANCELLED,
     },
     TaskStatus.DONE: set(),
@@ -73,6 +89,22 @@ class ProviderClass(str, Enum):
     LOCAL_MODEL = "local_model"
     SUBSCRIPTION_OAUTH = "subscription_oauth"
     API_METERED = "api_metered"
+
+
+class FailureClass(str, Enum):
+    TRANSIENT = "transient"
+    RATE_LIMITED = "rate_limited"
+    QUALITY_FAILURE = "quality_failure"
+    QUOTA_EXHAUSTED = "quota_exhausted"
+    POLICY_VIOLATION = "policy_violation"
+    PERMANENT = "permanent"
+    UNCERTAIN_SIDE_EFFECT = "uncertain_side_effect"
+
+
+class SideEffectState(str, Enum):
+    NONE = "none"
+    CONFIRMED_NONE = "confirmed_none"
+    UNKNOWN = "unknown"
 
 
 class Budget(StrictModel):
@@ -164,6 +196,32 @@ class ResultReceiptV1(StrictModel):
     validation: ValidationResult = ValidationResult()
     cost_receipt: CostReceipt
     created_at: datetime = Field(default_factory=utcnow)
+
+
+class FailureReportV1(StrictModel):
+    schema_version: Literal[1] = 1
+    task_id: UUID
+    correlation_id: UUID
+    worker_instance: Annotated[str, Field(min_length=3, max_length=120)]
+    failure_class: FailureClass
+    reason: Annotated[str, Field(min_length=10, max_length=2000)]
+    side_effect_state: SideEffectState = SideEffectState.NONE
+    circuit_key: Annotated[
+        str, Field(pattern=r"^[a-zA-Z0-9._:/-]{3,120}$")
+    ] | None = None
+    retry_after_seconds: Annotated[int, Field(ge=0, le=86400)] | None = None
+    created_at: datetime = Field(default_factory=utcnow)
+
+    @model_validator(mode="after")
+    def require_unknown_side_effect(self) -> "FailureReportV1":
+        if (
+            self.failure_class == FailureClass.UNCERTAIN_SIDE_EFFECT
+            and self.side_effect_state != SideEffectState.UNKNOWN
+        ):
+            raise ValueError(
+                "uncertain_side_effect requires side_effect_state=unknown"
+            )
+        return self
 
 
 class ApprovalCardV1(StrictModel):

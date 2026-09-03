@@ -6,7 +6,13 @@ from uuid import UUID
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict
 
-from .contracts import ApprovalCardV1, ResultReceiptV1, TaskCardV1, TaskStatus
+from .contracts import (
+    ApprovalCardV1,
+    FailureReportV1,
+    ResultReceiptV1,
+    TaskCardV1,
+    TaskStatus,
+)
 from .cockpit import CockpitSnapshot
 from .policy import (
     PolicyError,
@@ -14,6 +20,7 @@ from .policy import (
     load_catalog,
     load_routing_policy,
 )
+from .resilience import ResilienceDecision, ResilienceSnapshot
 from .store import NotFoundError, OwnershipError, Store, StoreError, TransitionError
 
 
@@ -86,7 +93,7 @@ def create_app(store: Store | None = None) -> FastAPI:
         if row is None:
             raise HTTPException(
                 status_code=409,
-                detail="task not claimable (not ready or lease still active)",
+                detail="task not claimable (status, lease, or circuit gate)",
             )
         return row
 
@@ -103,6 +110,20 @@ def create_app(store: Store | None = None) -> FastAPI:
             raise HTTPException(status_code=422, detail="task_id mismatch")
         try:
             return st.submit_receipt(receipt)
+        except StoreError as exc:
+            raise _to_http(exc) from exc
+
+    @app.post(
+        "/v1/tasks/{task_id}/failures",
+        response_model=ResilienceDecision,
+    )
+    def report_failure(
+        task_id: UUID, report: FailureReportV1
+    ) -> ResilienceDecision:
+        if report.task_id != task_id:
+            raise HTTPException(status_code=422, detail="task_id mismatch")
+        try:
+            return st.report_failure(report)
         except StoreError as exc:
             raise _to_http(exc) from exc
 
@@ -132,6 +153,17 @@ def create_app(store: Store | None = None) -> FastAPI:
     @app.post("/v1/maintenance/expire-leases")
     def expire_leases() -> dict:
         return {"expired": st.expire_leases()}
+
+    @app.post("/v1/maintenance/release-retries")
+    def release_retries() -> dict:
+        return {"released": st.release_due_retries()}
+
+    @app.get(
+        "/v1/operations/resilience",
+        response_model=ResilienceSnapshot,
+    )
+    def resilience() -> ResilienceSnapshot:
+        return st.resilience_snapshot()
 
     return app
 

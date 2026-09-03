@@ -54,6 +54,7 @@ def store():
     s.init_db()
     with psycopg.connect(s.url) as conn:
         conn.execute(
-            "TRUNCATE agent_tasks, agent_events, approvals, routing_receipts"
+            "TRUNCATE recovery_cards, dead_letters, circuit_breakers, "
+            "agent_tasks, agent_events, approvals, routing_receipts"
         )
     return s
