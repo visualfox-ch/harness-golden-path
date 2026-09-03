@@ -15,6 +15,7 @@ from .contracts import (
     TaskStatus,
 )
 from .cockpit import CockpitSnapshot
+from .metrics import QualityMetricsSnapshot
 from .auth import (
     AuthenticationError,
     AuthorizationError,
@@ -104,6 +105,10 @@ def create_app(
     @app.get("/v1/operations/cockpit", response_model=CockpitSnapshot)
     def cockpit() -> CockpitSnapshot:
         return st.cockpit_snapshot(catalog, routing_policy)
+
+    @app.get("/v1/operations/metrics", response_model=QualityMetricsSnapshot)
+    def quality_metrics() -> QualityMetricsSnapshot:
+        return st.quality_metrics_snapshot()
 
     @app.get(
         "/v1/projections/pandaos",

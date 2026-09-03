@@ -26,6 +26,7 @@ from .contracts import (
     TaskStatus,
 )
 from .cockpit import CockpitSnapshot, build_cockpit_snapshot
+from .metrics import QualityMetricsSnapshot, build_quality_metrics_snapshot
 from .resilience import (
     CIRCUIT_COOLDOWN_SECONDS,
     CIRCUIT_FAILURE_THRESHOLD,
@@ -186,6 +187,11 @@ class Store:
     ) -> CockpitSnapshot:
         with self._connect() as conn:
             return build_cockpit_snapshot(conn, catalog, routing_policy)
+
+    def quality_metrics_snapshot(self) -> QualityMetricsSnapshot:
+        """Aggregate P3-1 metrics from immutable ResultReceiptV1 evidence."""
+        with self._connect() as conn:
+            return build_quality_metrics_snapshot(conn)
 
     def pandaos_projection_snapshot(
         self, after_event_id: int = 0, full: bool = False
