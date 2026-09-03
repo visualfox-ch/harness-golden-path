@@ -1,6 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
+from psycopg.rows import dict_row
 
 from harness.contracts import (
     CostReceipt,
@@ -10,6 +11,25 @@ from harness.contracts import (
     TaskStatus,
 )
 from harness.store import OwnershipError, Store, TransitionError
+
+
+def test_store_reads_database_password_from_file(tmp_path, monkeypatch):
+    password_file = tmp_path / "postgres-password"
+    password_file.write_text("file-backed-secret\n", encoding="utf-8")
+    monkeypatch.setenv("HARNESS_DATABASE_PASSWORD_FILE", str(password_file))
+    captured = {}
+
+    def fake_connect(url, **kwargs):
+        captured.update({"url": url, **kwargs})
+        return object()
+
+    monkeypatch.setattr("harness.store.psycopg.connect", fake_connect)
+    Store("postgresql://harness@postgres:5432/harness")._connect()
+    assert captured == {
+        "url": "postgresql://harness@postgres:5432/harness",
+        "password": "file-backed-secret",
+        "row_factory": dict_row,
+    }
 
 
 def test_task_creation_is_idempotent(store, card_factory):

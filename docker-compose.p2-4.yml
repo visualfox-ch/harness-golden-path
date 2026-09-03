@@ -36,13 +36,13 @@ services:
     environment:
       HARNESS_AUTH_REQUIRED: "1"
       HARNESS_DATABASE_URL: postgresql://harness@postgres:5432/harness
+      HARNESS_DATABASE_PASSWORD_FILE: /run/secrets/postgres_password
       HARNESS_ORCHESTRATOR_TOKEN_FILE: /run/secrets/orchestrator_token
       HARNESS_NAS_WORKER_TOKEN_FILE: /run/secrets/nas_worker_token
-      PGPASSFILE: /run/secrets/pgpass
     secrets:
+      - postgres_password
       - orchestrator_token
       - nas_worker_token
-      - pgpass
     ports:
       - "127.0.0.1:18787:8787"
     networks:
@@ -120,8 +120,6 @@ volumes:
 secrets:
   postgres_password:
     file: ./secrets/postgres_password
-  pgpass:
-    file: ./secrets/pgpass
   orchestrator_token:
     file: ./secrets/orchestrator_token
   nas_worker_token:
