@@ -95,7 +95,9 @@ vorgesehen:
 - `GET /v1/operations/cockpit` — aktueller, evidenzgebundener Task- und
   Resilienz-Snapshot.
 - `GET /v1/operations/metrics` — aggregierte Routing-, Qualitäts- und
-  Kosten-Receipts aus abgeschlossenen Abläufen.
+  Kosten-Receipts aus abgeschlossenen Abläufen. Die genaue Evidenzbasis und
+  die Behandlung fehlender Daten stehen unter
+  [Routing- und Qualitätsmetriken](docs/routing-quality-metrics.md).
 - `GET /v1/projections/pandaos?after_event_id=<cursor>` — inkrementeller
   Event-Feed für PandaOS; `full=true` erstellt einen deterministischen
   Neuaufbau-Snapshot.
