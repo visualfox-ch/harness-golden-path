@@ -2,7 +2,9 @@
 
 `GET /v1/operations/metrics` liefert ausschliesslich aus dem Harness-State-Store
 abgeleitete Evidenz. Die Quelle sind `routing_receipts` und die zugehörigen
-`agent_tasks`; der Endpoint schreibt nichts.
+`agent_tasks`; der Endpoint schreibt nichts. Es werden ausschliesslich
+`projection_kind: operational` gezählt. Proof-Fixtures (`evidence`) bleiben
+prüfbar im Eventlog, beeinflussen aber keine Betriebskennzahl.
 
 | Kennzahl | Bedeutung | Verhalten ohne Evidenz |
 | --- | --- | --- |

@@ -66,6 +66,7 @@ def build_quality_metrics_snapshot(conn) -> QualityMetricsSnapshot:
         SELECT rr.outcome, rr.receipt, task.attempt_count
         FROM routing_receipts AS rr
         JOIN agent_tasks AS task ON task.task_id = rr.task_id
+        WHERE task.card->>'projection_kind' = 'operational'
         ORDER BY rr.receipt_id
         """
     ).fetchall()

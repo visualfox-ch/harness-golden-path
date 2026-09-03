@@ -5,6 +5,7 @@ from harness.contracts import (
     CostReceipt,
     FailureClass,
     FailureReportV1,
+    ProjectionKind,
     ResultReceiptV1,
     ValidationResult,
 )
@@ -96,6 +97,21 @@ def test_metrics_aggregate_first_pass_retry_and_route_evidence(store, card_facto
     assert snapshot.routes[0].model_ref == "anthropic_oauth_reasoner"
     assert snapshot.routes[0].receipt_count == 2
     assert snapshot.routes[0].incremental_cost_chf == 0.0
+
+
+def test_metrics_exclude_evidence_fixture_receipts(store, card_factory):
+    _submit_receipt(
+        store,
+        card_factory(projection_kind=ProjectionKind.EVIDENCE),
+        "evidence-fixture-worker",
+    )
+    _submit_receipt(store, card_factory(), "operational-worker")
+
+    snapshot = store.quality_metrics_snapshot()
+
+    assert snapshot.receipt_count == 1
+    assert snapshot.first_pass_rate.rate == 1.0
+    assert snapshot.routes[0].receipt_count == 1
 
 
 def test_metrics_api_is_read_only(store):
