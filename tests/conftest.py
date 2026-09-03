@@ -4,9 +4,12 @@ from uuid import uuid4
 import psycopg
 import pytest
 
+# Tests laufen NIE gegen die Betriebs-DB des Harness: lokal wird eine
+# dedizierte Test-DB verwendet; nur explizit gesetztes HARNESS_DATABASE_URL
+# (z. B. der CI-Service-Container) hat Vorrang.
 os.environ.setdefault(
     "HARNESS_DATABASE_URL",
-    "postgresql://harness:harness_dev@localhost:5433/harness",
+    "postgresql://harness:harness_dev@localhost:5433/harness_test",
 )
 
 from harness.contracts import (  # noqa: E402
