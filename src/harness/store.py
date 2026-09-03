@@ -21,6 +21,7 @@ from .contracts import (
     TaskCardV1,
     TaskStatus,
 )
+from .cockpit import CockpitSnapshot, build_cockpit_snapshot
 
 DEFAULT_URL = "postgresql://harness:harness_dev@localhost:5433/harness"
 
@@ -117,6 +118,12 @@ class Store:
     def init_db(self) -> None:
         with self._connect() as conn:
             conn.execute(SCHEMA)
+
+    def cockpit_snapshot(
+        self, catalog: dict, routing_policy: dict
+    ) -> CockpitSnapshot:
+        with self._connect() as conn:
+            return build_cockpit_snapshot(conn, catalog, routing_policy)
 
     # -- Events ---------------------------------------------------------------
 

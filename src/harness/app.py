@@ -7,7 +7,13 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict
 
 from .contracts import ApprovalCardV1, ResultReceiptV1, TaskCardV1, TaskStatus
-from .policy import PolicyError, assert_route_allowed, load_catalog
+from .cockpit import CockpitSnapshot
+from .policy import (
+    PolicyError,
+    assert_route_allowed,
+    load_catalog,
+    load_routing_policy,
+)
 from .store import NotFoundError, OwnershipError, Store, StoreError, TransitionError
 
 
@@ -48,10 +54,15 @@ def create_app(store: Store | None = None) -> FastAPI:
     st = store or Store()
     st.init_db()
     catalog = load_catalog()
+    routing_policy = load_routing_policy()
 
     @app.get("/health")
     def health() -> dict:
         return {"status": "ok"}
+
+    @app.get("/v1/operations/cockpit", response_model=CockpitSnapshot)
+    def cockpit() -> CockpitSnapshot:
+        return st.cockpit_snapshot(catalog, routing_policy)
 
     @app.post("/v1/tasks", status_code=201)
     def create_task(card: TaskCardV1) -> dict:
