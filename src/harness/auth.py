@@ -113,7 +113,9 @@ def required_scope(method: str, path: str) -> str | None:
     ):
         return "tasks:receipt"
     if method == "GET" and (
-        path.startswith("/v1/operations/") or path.startswith("/v1/traces/")
+        path.startswith("/v1/operations/")
+        or path.startswith("/v1/projections/")
+        or path.startswith("/v1/traces/")
     ):
         return "operations:read"
     if path.startswith("/v1/maintenance/"):

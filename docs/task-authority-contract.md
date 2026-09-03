@@ -12,11 +12,10 @@ conflicting histories and make retry or approval decisions unsafe.
 The Control Harness is the only runtime authority. PandaOS session tasks are a
 projection and may not write runtime status back into the Harness.
 
-PandaOS may submit three explicit inputs through Harness APIs:
+PandaOS may submit two explicit inputs through Harness APIs:
 
 1. a new task intent before execution,
-2. a priority change before claim,
-3. a human approval decision.
+2. a human approval decision.
 
 All runtime fields — including status, owner, lease, attempts, failures,
 approvals, and receipts — flow from Harness events to projections. If a PandaOS
@@ -26,6 +25,8 @@ stale. There is no automatic reverse synchronization.
 ## Current implementation boundary
 
 `policies/task-authority.yaml` is loaded during Harness startup and task
-creation fails closed if the authority or writeback boundary is weakened. The
-actual event-to-PandaOS projection adapter is future work; this contract does
-not claim that bidirectional synchronization exists.
+creation fails closed if the authority or writeback boundary is weakened.
+The read-only event-to-PandaOS source, mapping, ordering, drift detection, and
+snapshot rebuild are implemented in P2-7. The PandaOS-hosted consumer remains
+separate because PandaOS exposes no external session-task API to the Harness.
+This contract does not claim that bidirectional synchronization exists.

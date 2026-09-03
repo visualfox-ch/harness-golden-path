@@ -80,3 +80,8 @@ Approval-Aktion nicht zusammenpassen. Secrets sind nur als Referenzen erlaubt.
 Der [Task Authority Contract](docs/task-authority-contract.md) legt fest:
 Harness ist die einzige Runtime-Wahrheit; PandaOS-Tasks sind eine Projektion
 ohne Status-Writeback.
+
+Der [PandaOS Projection Adapter](docs/pandaos-projection-adapter.md) stellt
+dafür einen read-only Incremental-/Rebuild-Feed mit Event-Cursor bereit. Das
+deterministische Consumer-Mapping erkennt veraltete Events und Drift, liefert
+aber keinen PandaOS→Harness-Statuspfad.
