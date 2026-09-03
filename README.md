@@ -39,3 +39,11 @@ Verifizierte Gates: 17/17 Harness-Tests grün, direkter Push auf `main` wird
 durch das Ruleset abgewiesen (GH013), Merge erfolgt ausschliesslich nach
 menschlicher Freigabe über eine ApprovalCard. Modellroute: ausschliesslich
 `anthropic_oauth_reasoner` (subscription_oauth, inkrementelle Kosten 0.00 CHF).
+
+## Live Operations
+
+P2-1 verbindet den Harness-State read-only mit einer PandaOS-Automation. Ein
+kontrollierter `task_created`-Event wurde beim nächsten Datenbank-Poll erkannt;
+der resultierende Snapshot wurde erfolgreich als neuer Chat sowie als
+Status-/KPI-Karten ausgeliefert. Der vollständige, timestamped Nachweis steht
+unter [P2-1 Live Operations](evidence/p2-1-live-operations-2026-09-03.md).
