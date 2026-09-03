@@ -81,6 +81,18 @@ Intervall neu erstellt. Verifikation um `2026-09-03T22:06:46Z`:
 - beobachteter `main`-SHA: `80aea8db455a25f5eea8420ff1e1965c5687a70e`
 - beobachteter CI-Status: `completed/success`
 
+## Automatische Abschlussprüfung
+
+Die aktive PandaOS-Automation `P2-4 NAS Pilot Abschlussprüfung`
+(`2fe7668b-a2a6-4d08-b8ed-2448d79d5ed7`) läuft einmalig am
+`2026-09-10T22:09:51Z` und liefert das Ergebnis in einen neuen Chat. Sie darf
+über eine exakte Tool-Regel ausschliesslich den read-only Audit-Entry-Point
+`hermes-panda-os/scripts/p2-4-final-audit.sh` ausführen. Catch-up ist aktiv.
+
+Die Automation validierte schema-konform. PandaOS weist darauf hin, dass der
+`rules`-Modus für unbeaufsichtigte Läufe funktionierende Claude-Credentials
+benötigt; dies bleibt eine Ausführungsvoraussetzung für die Ergebniszustellung.
+
 ## Plattform-Warnungen
 
 1. Das NAS-Buildx ist älter als die von Compose verlangte Version 0.17. Der
