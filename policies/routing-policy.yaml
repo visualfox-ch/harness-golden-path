@@ -1,0 +1,17 @@
+# Routing-Policy v1 — Golden Path: eine Taskklasse, eine verifizierte Route.
+version: 1
+
+defaults:
+  deterministic_first: true
+  api_metered_allowed: false
+  max_total_attempts: 2
+  require_cost_receipt: true
+  forbid_secrets_in_prompts: true
+  quota_exhaustion_action: awaiting_decision
+
+classes:
+  docs_change:
+    executor: hermes_local_builder
+    route:
+      - anthropic_oauth_reasoner
+    quality_gate: lint_and_targeted_tests

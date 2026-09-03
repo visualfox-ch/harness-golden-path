@@ -1,0 +1,14 @@
+# Modellkatalog v1 — enthält AUSSCHLIESSLICH verifizierte Routen.
+# Evidenz: hermes-panda-os/04-model-inventory/verifikationsprotokoll-2026-09-03.md
+version: 1
+
+models:
+  anthropic_oauth_reasoner:
+    provider_class: subscription_oauth
+    provider: anthropic
+    connection_status: verified
+    connection_evidence: "Claude Max Abo (stripe_subscription, claude_max, Tier 5x), 2026-09-03"
+    roles: [anthropic_coder, reviewer]
+    incremental_cost_chf: 0.00
+    quota_tracked: true
+    quota_visibility: partial
