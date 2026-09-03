@@ -40,6 +40,13 @@ durch das Ruleset abgewiesen (GH013), Merge erfolgt ausschliesslich nach
 menschlicher Freigabe über eine ApprovalCard. Modellroute: ausschliesslich
 `anthropic_oauth_reasoner` (subscription_oauth, inkrementelle Kosten 0.00 CHF).
 
+**Status 2026-09-03:** Der Golden Path ist über den Erstnachweis hinaus als
+versionierter Feature-Delivery-Workflow verfügbar. Live-Operations-Snapshots,
+ein evidenzgebundenes System-Cockpit sowie fail-closed Retry-, Circuit-Breaker-,
+Dead-Letter- und Recovery-Card-Pfade sind implementiert und auf `main`
+verifiziert. Proof-Fixtures bleiben als Evidenz sichtbar, werden jedoch nicht
+als operative Arbeit oder Architektur-Roadmap interpretiert.
+
 ## Live Operations
 
 P2-1 verbindet den Harness-State read-only mit einer PandaOS-Automation. Ein
