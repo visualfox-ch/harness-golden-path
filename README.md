@@ -86,6 +86,23 @@ dafür einen read-only Incremental-/Rebuild-Feed mit Event-Cursor bereit. Das
 deterministische Consumer-Mapping erkennt veraltete Events und Drift, liefert
 aber keinen PandaOS→Harness-Statuspfad.
 
+## Operations API (read-only)
+
+Diese Endpunkte liefern Betriebsdaten; sie verändern weder Tasks noch
+Freigaben. Sie sind für Cockpits, Audits und die einseitige PandaOS-Projektion
+vorgesehen:
+
+- `GET /v1/operations/cockpit` — aktueller, evidenzgebundener Task- und
+  Resilienz-Snapshot.
+- `GET /v1/operations/metrics` — aggregierte Routing-, Qualitäts- und
+  Kosten-Receipts aus abgeschlossenen Abläufen.
+- `GET /v1/projections/pandaos?after_event_id=<cursor>` — inkrementeller
+  Event-Feed für PandaOS; `full=true` erstellt einen deterministischen
+  Neuaufbau-Snapshot.
+
+Der Consumer verwaltet seinen Cursor ausserhalb des Harness. Es gibt bewusst
+keinen PandaOS→Harness-Status- oder Schreibpfad.
+
 ## P2-6 Backup/Restore und Lease-Recovery
 
 Die isolierte P2-6-Übung erstellt ein logisches PostgreSQL-Backup, restauriert
