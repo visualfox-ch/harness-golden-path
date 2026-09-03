@@ -1,0 +1,141 @@
+# Maschinenlesbare Abbildung von Canvas A (Feature Delivery).
+# Quelle: hermes-panda-os/02-canvases/feature-delivery-v1.md
+# Darstellung erfolgt NICHT ueber eine native Panda-Canvas-Live-Bindung
+# (P0-6 hat das ausgeschlossen), sondern ueber Automations + generative_ui (P2-1, v0-Pfad).
+workflow_id: feature_delivery
+workflow_version: 1.0.0
+status: design_only
+api_metered_fallback: forbidden
+entry_node: context_pack
+
+nodes:
+  - node_id: context_pack
+    display_name: "Kontextpaket"
+    owner_role: panda_orchestrator
+    autonomy_level: A1
+    allowed_tools: [atlas_read, github_read, repo_read]
+    allowed_model_roles: [fast_local, deterministic]
+    routing_policy_class: context_pack
+    input_schema: "issue_or_intent"
+    output_schema: "context_pack.v1"
+    required_artifacts: [context_pack.yaml]
+    limits: {max_runtime_minutes: 5, max_attempts: 1}
+    transitions:
+      success: scope_risk_route
+
+  - node_id: scope_risk_route
+    display_name: "Scope, Risiko, Datenklasse und Modellroute"
+    owner_role: panda_orchestrator
+    autonomy_level: A1
+    allowed_tools: [policy_read, classifier]
+    allowed_model_roles: [fast_local, router_judge]
+    routing_policy_class: scope_risk_route
+    input_schema: "context_pack.v1"
+    output_schema: "TaskCardV1"
+    required_artifacts: [TaskCardV1]
+    limits: {max_runtime_minutes: 5, max_attempts: 1}
+    transitions:
+      success: harness_gate
+
+  - node_id: harness_gate
+    display_name: "Schema, Policy, Budget, Idempotenz pruefen"
+    owner_role: cost_router
+    autonomy_level: A0
+    allowed_tools: [schema_validator, policy_engine, idempotency_registry]
+    allowed_model_roles: [deterministic]
+    input_schema: "TaskCardV1"
+    output_schema: "dispatch_decision"
+    required_artifacts: [policy_check_log, idempotency_entry]
+    limits: {max_runtime_minutes: 1, max_attempts: 1}
+    transitions:
+      success: hermes_local_execute
+      failure: blocked
+
+  - node_id: hermes_local_execute
+    display_name: "Lokale Implementierung"
+    owner_role: hermes_local_builder
+    autonomy_level: A3
+    allowed_tools: [git_worktree, git_branch, git_commit, test_runner, lint]
+    allowed_model_roles: [local_coder, github_coder, anthropic_coder, openai_coder]
+    routing_policy_class: complex_code
+    input_schema: "TaskCardV1"
+    output_schema: "branch_commits_testreport"
+    required_artifacts: [worktree_ref, branch, commit_sha, test_report]
+    limits: {max_runtime_minutes: 90, max_attempts: 2}
+    transitions:
+      success: github_pr_ci
+      retry: hermes_local_execute
+      failure: panda_review
+
+  - node_id: github_pr_ci
+    display_name: "Pull Request und CI"
+    owner_role: hermes_local_builder
+    autonomy_level: A3
+    protected_side_effect: true
+    allowed_tools: [open_pull_request, github_actions]
+    allowed_model_roles: [deterministic]
+    input_schema: "branch_commits_testreport"
+    output_schema: "pr_ci_status"
+    required_artifacts: [pull_request_ref, ci_run_ref]
+    limits: {max_runtime_minutes: 30, max_attempts: 1}
+    transitions:
+      success: panda_review
+      failure: hermes_local_execute
+
+  - node_id: panda_review
+    display_name: "Review, Outcome Tracking und Decision Context"
+    owner_role: hermes_local_reviewer
+    autonomy_level: A1
+    allowed_tools: [diff_read, ci_read, scope_check]
+    allowed_model_roles: [reviewer]
+    routing_policy_class: review
+    input_schema: "pr_ci_status"
+    output_schema: "handoff_card"
+    required_artifacts: [review_note, handoff_card, cost_receipt]
+    limits: {max_runtime_minutes: 30, max_attempts: 1}
+    transitions:
+      success: merge_approval
+      failure: hermes_local_execute
+
+  - node_id: merge_approval
+    display_name: "Merge Approval"
+    owner_role: human
+    autonomy_level: A4
+    protected_side_effect: true
+    allowed_tools: [panda_approval_ui, github_review]
+    allowed_model_roles: [human]
+    input_schema: "handoff_card"
+    output_schema: "ApprovalCardV1"
+    required_artifacts: [approval_decision]
+    limits: {max_runtime_minutes: 4320, max_attempts: 1}
+    transitions:
+      success: protected_merge
+      failure: blocked
+
+  - node_id: protected_merge
+    display_name: "Geschuetzter Merge"
+    owner_role: ci
+    autonomy_level: A4
+    protected_side_effect: true
+    allowed_tools: [github_merge]
+    allowed_model_roles: [deterministic]
+    input_schema: "ApprovalCardV1"
+    output_schema: "merge_result"
+    required_artifacts: [merge_sha]
+    limits: {max_runtime_minutes: 5, max_attempts: 1}
+    transitions:
+      success: knowledge_capture
+
+  - node_id: knowledge_capture
+    display_name: "Knowledge Capture und Abschluss"
+    owner_role: panda_orchestrator
+    autonomy_level: A2
+    allowed_tools: [atlas_write, adr_draft, receipt_store]
+    allowed_model_roles: [fast_local, anthropic_coder]
+    routing_policy_class: knowledge_capture
+    input_schema: "merge_result"
+    output_schema: "knowledge_card"
+    required_artifacts: [knowledge_card]
+    limits: {max_runtime_minutes: 15, max_attempts: 1}
+    transitions:
+      success: "done"
