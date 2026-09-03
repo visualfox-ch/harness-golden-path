@@ -1,0 +1,80 @@
+name: harness-p2-6
+
+services:
+  source:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: harness
+      POSTGRES_USER: harness
+      POSTGRES_PASSWORD: p2_6_dev_only
+    volumes:
+      - p2_6_source_data:/var/lib/postgresql/data
+    networks: [continuity]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U harness -d harness"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  restore:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: harness
+      POSTGRES_USER: harness
+      POSTGRES_PASSWORD: p2_6_dev_only
+    volumes:
+      - p2_6_restore_data:/var/lib/postgresql/data
+    networks: [continuity]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U harness -d harness"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  fixture-source:
+    profiles: [exercise]
+    image: harness-p2-6:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["python", "-m", "harness.continuity", "seed"]
+    environment:
+      HARNESS_DATABASE_URL: postgresql://harness:p2_6_dev_only@source:5432/harness
+      P2_6_FIXTURE_MODE: "1"
+    networks: [continuity]
+    depends_on:
+      source:
+        condition: service_healthy
+
+  fixture-restore:
+    profiles: [exercise]
+    image: harness-p2-6:local
+    command: ["python", "-m", "harness.continuity", "manifest"]
+    environment:
+      HARNESS_DATABASE_URL: postgresql://harness:p2_6_dev_only@restore:5432/harness
+      P2_6_FIXTURE_MODE: "1"
+    networks: [continuity]
+    depends_on:
+      restore:
+        condition: service_healthy
+
+  crash-worker:
+    profiles: [exercise]
+    image: harness-p2-6:local
+    command: ["python", "-m", "harness.continuity", "crash-worker"]
+    environment:
+      HARNESS_DATABASE_URL: postgresql://harness:p2_6_dev_only@source:5432/harness
+      P2_6_FIXTURE_MODE: "1"
+    networks: [continuity]
+    depends_on:
+      source:
+        condition: service_healthy
+    restart: "no"
+
+networks:
+  continuity:
+    internal: true
+
+volumes:
+  p2_6_source_data: {}
+  p2_6_restore_data: {}

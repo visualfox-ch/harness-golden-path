@@ -85,3 +85,12 @@ Der [PandaOS Projection Adapter](docs/pandaos-projection-adapter.md) stellt
 dafür einen read-only Incremental-/Rebuild-Feed mit Event-Cursor bereit. Das
 deterministische Consumer-Mapping erkennt veraltete Events und Drift, liefert
 aber keinen PandaOS→Harness-Statuspfad.
+
+## P2-6 Backup/Restore und Lease-Recovery
+
+Die isolierte P2-6-Übung erstellt ein logisches PostgreSQL-Backup, restauriert
+es in eine getrennte Instanz und vergleicht den vollständigen Harness-State
+über ein deterministisches Manifest. Ein beim Backup aktiver, danach
+abgelaufener Claim muss in `recovery_required` enden; ein Blind-Retry bleibt
+gesperrt. Ablauf und PASS-Kriterien stehen im
+[Backup/Restore Runbook](docs/backup-restore-runbook.md).
