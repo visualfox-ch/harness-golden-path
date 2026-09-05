@@ -29,6 +29,10 @@ uvicorn harness.app:app --port 8787
 
 `harness_dev` ist ein lokales Wegwerf-Passwort für den Dev-Container, kein Secret.
 
+**SQL-Konvention:** Tabellen-Aliase nie mit reservierten Schlüsselwörtern benennen
+(z. B. `at` blockiert strenge SQL-Validierer und `psql`-basierte Tooling) — es gilt
+`AS task`, `AS t`, `AS rr`, nie `AS at`.
+
 ## Golden Path Status
 
 Der erste End-to-End-Durchlauf (DEV-001, 2026-09-03) hat den vollständigen
@@ -54,6 +58,17 @@ kontrollierter `task_created`-Event wurde beim nächsten Datenbank-Poll erkannt;
 der resultierende Snapshot wurde erfolgreich als neuer Chat sowie als
 Status-/KPI-Karten ausgeliefert. Der vollständige, timestamped Nachweis steht
 unter [P2-1 Live Operations](evidence/p2-1-live-operations-2026-09-03.md).
+
+### Proof-Fixture-Enforcement (ab 2026-09-05)
+
+Proof-Fixtures in der Betriebs-DB müssen in ihrer TaskCard
+`projection_kind: evidence` tragen. Nur so bleiben sie als Evidenz sichtbar
+(Projektion, Trace), ohne die operativen Kennzahlen zu verfälschen: Metriken
+und das Cockpit-Risiken-Panel zählen ausschliesslich Tasks mit
+`projection_kind = 'operational'`, offene Recovery-Cards von Proof-Fixtures
+werden dort nicht gezählt. Die Live-Karten der Vor-Proofs (u. a. P2-3
+`572a23d3-f5a6-4d35-b754-9a6909ed1249`) wurden entsprechend nachmarkiert;
+die Recovery-Card selbst bleibt als Beweis offen.
 
 ## P2-4 Hermes-NAS Read-only Pilot
 
