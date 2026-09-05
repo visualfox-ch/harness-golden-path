@@ -29,7 +29,12 @@ def test_every_node_has_input_output_schema_and_limits():
 
 def test_model_consuming_nodes_reference_a_routing_class():
     workflow = load_workflow(name="feature-delivery-1.0.0")
-    deterministic_or_human = {"harness_gate", "github_pr_ci", "merge_approval", "protected_merge"}
+    deterministic_or_human = {
+        "harness_gate",
+        "github_pr_ci",
+        "merge_approval",
+        "protected_merge",
+    }
     for node in workflow.nodes:
         if node.node_id in deterministic_or_human:
             continue

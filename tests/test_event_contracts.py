@@ -49,9 +49,7 @@ def test_event_contract_rejects_unknown_event_types_and_payload_drift():
         )
 
 
-def test_persisted_trace_and_panda_projection_fulfil_v1_contracts(
-    store, card_factory
-):
+def test_persisted_trace_and_panda_projection_fulfil_v1_contracts(store, card_factory):
     card = card_factory()
     store.create_task(card)
     store.claim(card.task_id, "hermes_local", "event-contract-worker")

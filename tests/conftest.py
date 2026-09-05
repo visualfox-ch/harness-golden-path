@@ -12,7 +12,7 @@ os.environ.setdefault(
     "postgresql://harness:harness_dev@localhost:5433/harness_test",
 )
 
-from harness.contracts import (  # noqa: E402
+from harness.contracts import (
     Budget,
     ExecutorRole,
     ModelRouting,
@@ -20,25 +20,25 @@ from harness.contracts import (  # noqa: E402
     Scope,
     TaskCardV1,
 )
-from harness.store import Store  # noqa: E402
+from harness.store import Store
 
 
 def make_card(**overrides) -> TaskCardV1:
-    base = dict(
-        title="Golden path docs task",
-        project="harness-golden-path",
-        owner_role=ExecutorRole.HERMES_LOCAL,
-        objective="Ergänze den README-Abschnitt Golden Path um eine Statusnotiz.",
-        scope=Scope(include=["README.md"]),
-        acceptance=["README enthält den Abschnitt Golden Path"],
-        budget=Budget(max_runtime_minutes=90),
-        model_routing=ModelRouting(
+    base = {
+        "title": "Golden path docs task",
+        "project": "harness-golden-path",
+        "owner_role": ExecutorRole.HERMES_LOCAL,
+        "objective": "Ergänze den README-Abschnitt Golden Path um eine Statusnotiz.",
+        "scope": Scope(include=["README.md"]),
+        "acceptance": ["README enthält den Abschnitt Golden Path"],
+        "budget": Budget(max_runtime_minutes=90),
+        "model_routing": ModelRouting(
             permitted_provider_classes=[ProviderClass.SUBSCRIPTION_OAUTH],
             default_route=["anthropic_oauth_reasoner"],
         ),
-        idempotency_key="sha256:test:" + uuid4().hex,
-        approval_required=["merge_main"],
-    )
+        "idempotency_key": "sha256:test:" + uuid4().hex,
+        "approval_required": ["merge_main"],
+    }
     base.update(overrides)
     return TaskCardV1(**base)
 

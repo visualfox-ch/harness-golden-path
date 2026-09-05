@@ -111,9 +111,7 @@ def test_projection_planner_repairs_panda_drift(store, card_factory):
     assert operation.reason == "panda_projection_drift"
 
 
-def test_projection_planner_advances_cursor_without_target_write(
-    store, card_factory
-):
+def test_projection_planner_advances_cursor_without_target_write(store, card_factory):
     card = card_factory()
     store.create_task(card)
     item = store.pandaos_projection_snapshot().tasks[0]
@@ -129,9 +127,7 @@ def test_projection_planner_advances_cursor_without_target_write(
     assert plan_projection(newer_same_display, checkpoint).action == "advance_cursor"
 
 
-def test_projection_api_is_read_only_and_cursor_ahead_fails_closed(
-    store, card_factory
-):
+def test_projection_api_is_read_only_and_cursor_ahead_fails_closed(store, card_factory):
     store.create_task(card_factory())
     client = TestClient(create_app(store))
 
@@ -142,9 +138,7 @@ def test_projection_api_is_read_only_and_cursor_ahead_fails_closed(
     ahead = client.get("/v1/projections/pandaos?after_event_id=999999")
     assert ahead.status_code == 409
 
-    rebuilt = client.get(
-        "/v1/projections/pandaos?after_event_id=999999&full=true"
-    )
+    rebuilt = client.get("/v1/projections/pandaos?after_event_id=999999&full=true")
     assert rebuilt.status_code == 200
     assert rebuilt.json()["mode"] == "full"
     assert rebuilt.json()["from_event_id"] == 0
