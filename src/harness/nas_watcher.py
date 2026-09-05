@@ -1,4 +1,5 @@
 """Read-only Hermes-NAS pilot worker with bounded, allowlisted probes."""
+
 from __future__ import annotations
 
 import json
@@ -6,9 +7,9 @@ import os
 import re
 import sys
 import time
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from uuid import UUID
@@ -112,7 +113,10 @@ class PublicGitHubProbe:
     """Read only the public pilot repository; arbitrary targets are rejected."""
 
     def __init__(self, repository: str = _ALLOWED_REPOSITORY) -> None:
-        if not _REPOSITORY_RE.fullmatch(repository) or repository != _ALLOWED_REPOSITORY:
+        if (
+            not _REPOSITORY_RE.fullmatch(repository)
+            or repository != _ALLOWED_REPOSITORY
+        ):
             raise ValueError("repository is outside the P2-4 read-only allowlist")
         self.repository = repository
 
@@ -189,10 +193,10 @@ class NasWatcher:
             return self.client.claim(self.task_id, self.worker_id, self.lease_minutes)
         except ClaimConflict:
             task = self.client.get_task(self.task_id)
-            if (
-                task.get("owner_instance") == self.worker_id
-                and task.get("status") in {"claimed", "in_progress"}
-            ):
+            if task.get("owner_instance") == self.worker_id and task.get("status") in {
+                "claimed",
+                "in_progress",
+            }:
                 return task
             raise WorkerError("task is not owned by this worker")
 
@@ -269,7 +273,11 @@ def main() -> int:
     if mode == "seed":
         token = _token_from_environment("HARNESS_ORCHESTRATOR_TOKEN_FILE")
         result = HarnessClient(base_url, token).create_task(build_pilot_task())
-        print(json.dumps({"created": result["created"], "task_id": result["task"]["task_id"]}))
+        print(
+            json.dumps(
+                {"created": result["created"], "task_id": result["task"]["task_id"]}
+            )
+        )
         return 0
     if mode != "run":
         raise WorkerError("mode must be run or seed")
@@ -279,7 +287,7 @@ def main() -> int:
         probe=PublicGitHubProbe(),
         task_id=os.environ["HARNESS_TASK_ID"],
         worker_id=os.environ.get("HARNESS_WORKER_ID", "svc-hermes-nas:p2-4"),
-        end_at=datetime.fromisoformat(os.environ["PILOT_END_AT"].replace("Z", "+00:00")),
+        end_at=datetime.fromisoformat(os.environ["PILOT_END_AT"]),
         interval_seconds=int(os.environ.get("PILOT_INTERVAL_SECONDS", "300")),
         lease_minutes=int(os.environ.get("HARNESS_LEASE_MINUTES", "10")),
     )

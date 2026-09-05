@@ -1,4 +1,5 @@
 """Fail-closed retry, recovery, dead-letter, and circuit-breaker policy."""
+
 from __future__ import annotations
 
 from typing import Literal
@@ -6,7 +7,6 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict
 
 from .contracts import FailureClass, SideEffectState, TaskStatus
-
 
 RETRYABLE_FAILURES = {
     FailureClass.TRANSIENT,
