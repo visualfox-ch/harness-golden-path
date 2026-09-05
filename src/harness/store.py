@@ -4,31 +4,34 @@ Der Store ist die einzige Komponente, die Statuswechsel schreibt (ADR-001:
 Ein-Autoritäts-Regel). Jeder Wechsel läuft über die Transitionstabelle und
 ein bedingtes UPDATE mit rowcount-Prüfung.
 """
+
 from __future__ import annotations
 
 import os
 from datetime import datetime
 from pathlib import Path
+from typing import Any, cast
 from uuid import UUID, uuid4
 
 import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Json
 
+from .cockpit import CockpitSnapshot, build_cockpit_snapshot
 from .contracts import (
     TRANSITIONS,
     ApprovalCardV1,
     EventEnvelopeV1,
     FailureClass,
     FailureReportV1,
+    HarnessEventType,
     ResultReceiptV1,
-    SideEffectState,
     TaskCardV1,
     TaskStatus,
     utcnow,
 )
-from .cockpit import CockpitSnapshot, build_cockpit_snapshot
 from .metrics import QualityMetricsSnapshot, build_quality_metrics_snapshot
+from .projection import PandaProjectionBatch, build_projection_batch
 from .resilience import (
     CIRCUIT_COOLDOWN_SECONDS,
     CIRCUIT_FAILURE_THRESHOLD,
@@ -39,7 +42,6 @@ from .resilience import (
     requires_recovery,
     retry_delay_seconds,
 )
-from .projection import PandaProjectionBatch, build_projection_batch
 
 DEFAULT_URL = "postgresql://harness:harness_dev@localhost:5433/harness"
 
@@ -171,22 +173,27 @@ class Store:
     def __init__(self, url: str | None = None) -> None:
         self.url = url or os.environ.get("HARNESS_DATABASE_URL", DEFAULT_URL)
 
-    def _connect(self) -> psycopg.Connection:
+    def _connect(self) -> psycopg.Connection[dict[str, Any]]:
         password_file = os.environ.get("HARNESS_DATABASE_PASSWORD_FILE")
         password = None
         if password_file:
             password = Path(password_file).read_text(encoding="utf-8").strip()
             if not password:
                 raise StoreError("database password file is empty")
-        return psycopg.connect(self.url, password=password, row_factory=dict_row)
+        return cast(
+            psycopg.Connection[dict[str, Any]],
+            psycopg.connect(
+                self.url,
+                password=password,
+                row_factory=dict_row,  # type: ignore[arg-type]
+            ),
+        )
 
     def init_db(self) -> None:
         with self._connect() as conn:
             conn.execute(SCHEMA)
 
-    def cockpit_snapshot(
-        self, catalog: dict, routing_policy: dict
-    ) -> CockpitSnapshot:
+    def cockpit_snapshot(self, catalog: dict, routing_policy: dict) -> CockpitSnapshot:
         with self._connect() as conn:
             return build_cockpit_snapshot(conn, catalog, routing_policy)
 
@@ -201,9 +208,10 @@ class Store:
         """Return a consistent, read-only task projection at an event cutoff."""
         with self._connect() as conn:
             conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
-            through_event_id = conn.execute(
+            agg = conn.execute(
                 "SELECT COALESCE(max(event_id), 0) AS value FROM agent_events"
-            ).fetchone()["value"]
+            ).fetchone()
+            through_event_id = agg["value"] if agg is not None else 0
             rows = conn.execute(
                 """
                 WITH task_versions AS (
@@ -235,7 +243,7 @@ class Store:
             event_id=0,
             task_id=task_id,
             correlation_id=correlation_id,
-            event_type=event_type,
+            event_type=HarnessEventType(event_type),
             payload=payload,
             created_at=utcnow(),
         )
@@ -245,9 +253,7 @@ class Store:
             (task_id, correlation_id, event_type, Json(payload)),
         )
 
-    def _create_recovery_card(
-        self, conn, task: dict, trigger: str, reason: str
-    ) -> str:
+    def _create_recovery_card(self, conn, task: dict, trigger: str, reason: str) -> str:
         recovery_id = uuid4()
         allowed_actions = [
             "inspect_read_only",
@@ -352,7 +358,9 @@ class Store:
 
     # -- Statuswechsel --------------------------------------------------------
 
-    def _set_status(self, conn, task_id, expected: TaskStatus, target: TaskStatus) -> None:
+    def _set_status(
+        self, conn, task_id, expected: TaskStatus, target: TaskStatus
+    ) -> None:
         if target not in TRANSITIONS[expected]:
             raise TransitionError(
                 f"transition {expected.value} -> {target.value} is not allowed"
@@ -378,12 +386,17 @@ class Store:
                 raise NotFoundError(f"task {task_id} not found")
             self._set_status(conn, task_id, TaskStatus(task["status"]), target)
             self._event(
-                conn, task["task_id"], task["correlation_id"], "status_changed",
+                conn,
+                task["task_id"],
+                task["correlation_id"],
+                "status_changed",
                 {"from": task["status"], "to": target.value, "reason": reason},
             )
             row = conn.execute(
                 "SELECT * FROM agent_tasks WHERE task_id=%s", (task_id,)
             ).fetchone()
+            if row is None:
+                raise StoreError(f"task {task_id} vanished during transition")
             return _jsonable(row)
 
     # -- Task-Lebenszyklus ----------------------------------------------------
@@ -400,9 +413,14 @@ class Store:
                 RETURNING *
                 """,
                 (
-                    card.task_id, card.correlation_id, card.title, card.project,
-                    card.owner_role.value, TaskStatus.READY.value,
-                    Json(card.model_dump(mode="json")), card.idempotency_key,
+                    card.task_id,
+                    card.correlation_id,
+                    card.title,
+                    card.project,
+                    card.owner_role.value,
+                    TaskStatus.READY.value,
+                    Json(card.model_dump(mode="json")),
+                    card.idempotency_key,
                     Json(card.approval_required),
                     f"route:{card.model_routing.default_route[0]}",
                 ),
@@ -412,9 +430,14 @@ class Store:
                     "SELECT * FROM agent_tasks WHERE idempotency_key=%s",
                     (card.idempotency_key,),
                 ).fetchone()
+                if existing is None:
+                    raise StoreError("idempotency conflict lost the existing row")
                 return _jsonable(existing), False
             self._event(
-                conn, row["task_id"], row["correlation_id"], "task_created",
+                conn,
+                row["task_id"],
+                row["correlation_id"],
+                "task_created",
                 {"title": card.title, "project": card.project},
             )
             return _jsonable(row), True
@@ -428,8 +451,9 @@ class Store:
             raise NotFoundError(f"task {task_id} not found")
         return _jsonable(row)
 
-    def claim(self, task_id, owner_role: str, worker_id: str,
-              lease_minutes: int = 10) -> dict | None:
+    def claim(
+        self, task_id, owner_role: str, worker_id: str, lease_minutes: int = 10
+    ) -> dict | None:
         with self._connect() as conn:
             row = conn.execute(
                 """
@@ -457,7 +481,10 @@ class Store:
             if row is None:
                 return None
             self._event(
-                conn, row["task_id"], row["correlation_id"], "task_claimed",
+                conn,
+                row["task_id"],
+                row["correlation_id"],
+                "task_claimed",
                 {"worker": worker_id, "attempt": row["attempt_count"]},
             )
             return _jsonable(row)
@@ -484,8 +511,11 @@ class Store:
                 ).fetchone()
                 if task is not None:
                     self._event(
-                        conn, task["task_id"], task["correlation_id"],
-                        "heartbeat_rejected", {"worker": worker_id},
+                        conn,
+                        task["task_id"],
+                        task["correlation_id"],
+                        "heartbeat_rejected",
+                        {"worker": worker_id},
                     )
                 # Audit-Event festschreiben, bevor die Exception die Transaktion beendet
                 conn.commit()
@@ -505,7 +535,10 @@ class Store:
             ).fetchall()
             for row in rows:
                 self._event(
-                    conn, row["task_id"], row["correlation_id"], "lease_expired",
+                    conn,
+                    row["task_id"],
+                    row["correlation_id"],
+                    "lease_expired",
                     {"action": "recovery_required"},
                 )
                 self._create_recovery_card(
@@ -548,17 +581,10 @@ class Store:
                 },
             )
 
-            if (
-                report.circuit_key
-                and report.circuit_key != task["circuit_key"]
-            ):
-                raise StoreError(
-                    "failure report circuit_key does not match task route"
-                )
+            if report.circuit_key and report.circuit_key != task["circuit_key"]:
+                raise StoreError("failure report circuit_key does not match task route")
 
-            if requires_recovery(
-                report.failure_class, report.side_effect_state
-            ):
+            if requires_recovery(report.failure_class, report.side_effect_state):
                 self._set_status(
                     conn, task["task_id"], current, TaskStatus.RECOVERY_REQUIRED
                 )
@@ -591,13 +617,13 @@ class Store:
                         report.retry_after_seconds,
                     )
                     if circuit and circuit["state"] == "open":
-                        delay_seconds = max(
-                            delay_seconds, CIRCUIT_COOLDOWN_SECONDS
-                        )
-                    retry_at = conn.execute(
+                        delay_seconds = max(delay_seconds, CIRCUIT_COOLDOWN_SECONDS)
+                    scalar = conn.execute(
                         "SELECT now() + make_interval(secs => %s) AS value",
                         (delay_seconds,),
-                    ).fetchone()["value"]
+                    ).fetchone()
+                    assert scalar is not None
+                    retry_at = scalar["value"]
                     self._set_status(
                         conn, task["task_id"], current, TaskStatus.RETRY_WAIT
                     )
@@ -636,9 +662,7 @@ class Store:
                         circuit_state=circuit["state"] if circuit else None,
                     )
 
-                self._set_status(
-                    conn, task["task_id"], current, TaskStatus.FAILED
-                )
+                self._set_status(conn, task["task_id"], current, TaskStatus.FAILED)
                 dead_letter_id = self._record_dead_letter(
                     conn,
                     task,
@@ -669,9 +693,7 @@ class Store:
                 )
 
             if report.failure_class == FailureClass.POLICY_VIOLATION:
-                self._set_status(
-                    conn, task["task_id"], current, TaskStatus.BLOCKED
-                )
+                self._set_status(conn, task["task_id"], current, TaskStatus.BLOCKED)
                 return ResilienceDecision(
                     task_id=str(task["task_id"]),
                     failure_class=report.failure_class,
@@ -680,9 +702,7 @@ class Store:
                 )
 
             self._set_status(conn, task["task_id"], current, TaskStatus.FAILED)
-            dead_letter_id = self._record_dead_letter(
-                conn, task, report, report.reason
-            )
+            dead_letter_id = self._record_dead_letter(conn, task, report, report.reason)
             return ResilienceDecision(
                 task_id=str(task["task_id"]),
                 failure_class=report.failure_class,
@@ -752,7 +772,9 @@ class Store:
                 raise NotFoundError(f"task {receipt.task_id} not found")
             if task["owner_instance"] != receipt.worker_instance:
                 self._event(
-                    conn, task["task_id"], task["correlation_id"],
+                    conn,
+                    task["task_id"],
+                    task["correlation_id"],
                     "receipt_rejected",
                     {"reason": "not lease owner", "worker": receipt.worker_instance},
                 )
@@ -761,16 +783,12 @@ class Store:
                 raise OwnershipError("receipt from non-owner worker rejected")
             current = TaskStatus(task["status"])
             if current not in _EXECUTION_STATES:
-                raise TransitionError(
-                    f"receipt not allowed in status {current.value}"
-                )
+                raise TransitionError(f"receipt not allowed in status {current.value}")
             if current == TaskStatus.CLAIMED:
                 self._set_status(conn, receipt.task_id, current, TaskStatus.IN_PROGRESS)
                 current = TaskStatus.IN_PROGRESS
             completed_target = (
-                TaskStatus.REVIEW
-                if task["approval_required"]
-                else TaskStatus.DONE
+                TaskStatus.REVIEW if task["approval_required"] else TaskStatus.DONE
             )
             target = {
                 "completed": completed_target,
@@ -781,14 +799,24 @@ class Store:
             conn.execute(
                 "INSERT INTO routing_receipts (task_id, worker_instance, outcome, receipt)"
                 " VALUES (%s, %s, %s, %s)",
-                (receipt.task_id, receipt.worker_instance, receipt.outcome,
-                 Json(receipt.model_dump(mode="json"))),
+                (
+                    receipt.task_id,
+                    receipt.worker_instance,
+                    receipt.outcome,
+                    Json(receipt.model_dump(mode="json")),
+                ),
             )
             self._event(
-                conn, task["task_id"], task["correlation_id"], "receipt_accepted",
-                {"outcome": receipt.outcome, "status": target.value,
-                 "model_ref": receipt.cost_receipt.model_ref,
-                 "provider_class": receipt.cost_receipt.provider_class.value},
+                conn,
+                task["task_id"],
+                task["correlation_id"],
+                "receipt_accepted",
+                {
+                    "outcome": receipt.outcome,
+                    "status": target.value,
+                    "model_ref": receipt.cost_receipt.model_ref,
+                    "provider_class": receipt.cost_receipt.provider_class.value,
+                },
             )
             if target == TaskStatus.REVIEW and task.get("circuit_key"):
                 closed = conn.execute(
@@ -812,6 +840,8 @@ class Store:
             row = conn.execute(
                 "SELECT * FROM agent_tasks WHERE task_id=%s", (receipt.task_id,)
             ).fetchone()
+            if row is None:
+                raise StoreError(f"task {receipt.task_id} vanished after receipt")
             return _jsonable(row)
 
     # -- Approvals ------------------------------------------------------------
@@ -825,7 +855,9 @@ class Store:
             if task is None:
                 raise NotFoundError(f"task {card.task_id} not found")
             self._set_status(
-                conn, card.task_id, TaskStatus(task["status"]),
+                conn,
+                card.task_id,
+                TaskStatus(task["status"]),
                 TaskStatus.AWAITING_APPROVAL,
             )
             conn.execute(
@@ -834,14 +866,21 @@ class Store:
                 (card.approval_id, card.task_id, card.action, card.requested_by),
             )
             self._event(
-                conn, task["task_id"], task["correlation_id"], "approval_requested",
+                conn,
+                task["task_id"],
+                task["correlation_id"],
+                "approval_requested",
                 {"approval_id": str(card.approval_id), "action": card.action},
             )
-            return {"approval_id": str(card.approval_id), "status": "requested",
-                    "task_status": TaskStatus.AWAITING_APPROVAL.value}
+            return {
+                "approval_id": str(card.approval_id),
+                "status": "requested",
+                "task_status": TaskStatus.AWAITING_APPROVAL.value,
+            }
 
-    def decide_approval(self, approval_id, decision: str, decided_by: str,
-                        reason: str = "") -> dict:
+    def decide_approval(
+        self, approval_id, decision: str, decided_by: str, reason: str = ""
+    ) -> dict:
         if decision not in ("approved", "rejected"):
             raise StoreError(f"invalid decision '{decision}'")
         with self._connect() as conn:
@@ -857,6 +896,8 @@ class Store:
                 "SELECT * FROM agent_tasks WHERE task_id=%s FOR UPDATE",
                 (approval["task_id"],),
             ).fetchone()
+            if task is None:
+                raise NotFoundError(f"task {approval['task_id']} not found")
             conn.execute(
                 "UPDATE approvals SET status=%s, decided_by=%s, reason=%s,"
                 " decided_at=now() WHERE approval_id=%s",
@@ -865,12 +906,21 @@ class Store:
             target = TaskStatus.DONE if decision == "approved" else TaskStatus.BLOCKED
             self._set_status(conn, task["task_id"], TaskStatus(task["status"]), target)
             self._event(
-                conn, task["task_id"], task["correlation_id"], "approval_decided",
-                {"approval_id": str(approval_id), "decision": decision,
-                 "decided_by": decided_by},
+                conn,
+                task["task_id"],
+                task["correlation_id"],
+                "approval_decided",
+                {
+                    "approval_id": str(approval_id),
+                    "decision": decision,
+                    "decided_by": decided_by,
+                },
             )
-            return {"approval_id": str(approval_id), "decision": decision,
-                    "task_status": target.value}
+            return {
+                "approval_id": str(approval_id),
+                "decision": decision,
+                "task_status": target.value,
+            }
 
     # -- Trace ----------------------------------------------------------------
 

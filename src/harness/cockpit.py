@@ -1,4 +1,5 @@
 """Read-only System-Cockpit aus Store- und Policy-Evidenz."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -41,7 +42,9 @@ def _iso(value: Any) -> Any:
     return value.isoformat() if isinstance(value, datetime) else value
 
 
-def build_cockpit_snapshot(conn, catalog: dict, routing_policy: dict) -> CockpitSnapshot:
+def build_cockpit_snapshot(
+    conn, catalog: dict, routing_policy: dict
+) -> CockpitSnapshot:
     """Aggregate only persisted state; missing evidence remains unavailable."""
     conn.execute("SET TRANSACTION READ ONLY")
     generated_at = conn.execute("SELECT now() AS value").fetchone()["value"]
@@ -59,9 +62,7 @@ def build_cockpit_snapshot(conn, catalog: dict, routing_policy: dict) -> Cockpit
         ORDER BY owner_role, owner_instance
         """
     ).fetchall()
-    workers = [
-        {key: _iso(value) for key, value in row.items()} for row in worker_rows
-    ]
+    workers = [{key: _iso(value) for key, value in row.items()} for row in worker_rows]
 
     receipt_rows = conn.execute(
         """
@@ -72,23 +73,21 @@ def build_cockpit_snapshot(conn, catalog: dict, routing_policy: dict) -> Cockpit
     ).fetchall()
     receipts = [row["receipt"] for row in receipt_rows]
     cost_receipts = [
-        receipt.get("cost_receipt", {}) for receipt in receipts
+        receipt.get("cost_receipt", {})
+        for receipt in receipts
         if receipt.get("cost_receipt")
     ]
     observed_models = sorted(
         {item["model_ref"] for item in cost_receipts if item.get("model_ref")}
     )
     observed_provider_classes = sorted(
-        {
-            item["provider_class"]
-            for item in cost_receipts
-            if item.get("provider_class")
-        }
+        {item["provider_class"] for item in cost_receipts if item.get("provider_class")}
     )
 
     configured_models = catalog.get("models", {})
     verified_oauth_routes = sorted(
-        name for name, model in configured_models.items()
+        name
+        for name, model in configured_models.items()
         if model.get("provider_class") == "subscription_oauth"
         and model.get("connection_status") == "verified"
     )
@@ -110,7 +109,8 @@ def build_cockpit_snapshot(conn, catalog: dict, routing_policy: dict) -> Cockpit
     if cost_receipts:
         quota_panel_status = (
             "available"
-            if quota_statuses and set(quota_statuses) == {"available"}
+            if quota_statuses
+            and set(quota_statuses) == {"available"}
             and set(quota_visibility) == {"full"}
             else "partial"
         )

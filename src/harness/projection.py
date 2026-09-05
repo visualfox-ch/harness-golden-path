@@ -1,4 +1,5 @@
 """One-way, deterministic Harness to PandaOS task projection."""
+
 from __future__ import annotations
 
 import hashlib
@@ -74,7 +75,7 @@ class ProjectionOperation(BaseModel):
     panda_task_id: str | None = None
 
 
-_PANDA_STATUS = {
+_PANDA_STATUS: dict[TaskStatus, Literal["pending", "in_progress", "completed"]] = {
     TaskStatus.READY: "pending",
     TaskStatus.CLAIMED: "in_progress",
     TaskStatus.IN_PROGRESS: "in_progress",
@@ -146,9 +147,7 @@ def project_task(row: dict) -> PandaTaskProjection:
     """Map an authoritative task row to the safe PandaOS display contract."""
     status = TaskStatus(row["status"])
     card = row.get("card") or {}
-    kind = ProjectionKind(
-        card.get("projection_kind", ProjectionKind.OPERATIONAL.value)
-    )
+    kind = ProjectionKind(card.get("projection_kind", ProjectionKind.OPERATIONAL.value))
     is_proof = kind == ProjectionKind.EVIDENCE
     panda_status = _PANDA_STATUS[status]
     active_form = _active_form(row, status, is_proof)

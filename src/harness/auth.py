@@ -1,4 +1,5 @@
 """Fail-closed bearer-token authorization for networked Harness pilots."""
+
 from __future__ import annotations
 
 import hmac
@@ -38,12 +39,14 @@ _PRINCIPAL_SPECS = (
         "svc-hermes-nas",
         "hermes_nas",
         "HARNESS_NAS_WORKER_TOKEN_FILE",
-        frozenset({
-            "tasks:read",
-            "tasks:claim",
-            "tasks:heartbeat",
-            "tasks:receipt",
-        }),
+        frozenset(
+            {
+                "tasks:read",
+                "tasks:claim",
+                "tasks:heartbeat",
+                "tasks:receipt",
+            }
+        ),
     ),
 )
 
@@ -56,7 +59,7 @@ class TokenAuthorizer:
         self.enabled = enabled
 
     @classmethod
-    def from_environment(cls) -> "TokenAuthorizer":
+    def from_environment(cls) -> TokenAuthorizer:
         required = os.environ.get("HARNESS_AUTH_REQUIRED", "0") == "1"
         principals: list[Principal] = []
         missing: list[str] = []
@@ -76,7 +79,7 @@ class TokenAuthorizer:
         return cls(tuple(principals), enabled=required or bool(principals))
 
     @classmethod
-    def disabled(cls) -> "TokenAuthorizer":
+    def disabled(cls) -> TokenAuthorizer:
         return cls((), enabled=False)
 
     def authenticate(self, authorization: str | None, scope: str) -> Principal:
@@ -108,14 +111,10 @@ def required_scope(method: str, path: str) -> str | None:
         return "tasks:claim"
     if method == "POST" and path.endswith("/heartbeat"):
         return "tasks:heartbeat"
-    if method == "POST" and (
-        path.endswith("/receipts") or path.endswith("/failures")
-    ):
+    if method == "POST" and path.endswith(("/receipts", "/failures")):
         return "tasks:receipt"
-    if method == "GET" and (
-        path.startswith("/v1/operations/")
-        or path.startswith("/v1/projections/")
-        or path.startswith("/v1/traces/")
+    if method == "GET" and path.startswith(
+        ("/v1/operations/", "/v1/projections/", "/v1/traces/")
     ):
         return "operations:read"
     if path.startswith("/v1/maintenance/"):

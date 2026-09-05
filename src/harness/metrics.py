@@ -1,4 +1,5 @@
 """Read-only routing and quality metrics derived from persisted receipts."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -72,10 +73,8 @@ def build_quality_metrics_snapshot(conn) -> QualityMetricsSnapshot:
     ).fetchall()
 
     receipt_count = len(rows)
-    completed_count = sum(row["outcome"] == "completed" for row in rows)
     first_pass_count = sum(
-        row["outcome"] == "completed" and row["attempt_count"] == 1
-        for row in rows
+        row["outcome"] == "completed" and row["attempt_count"] == 1 for row in rows
     )
     retried_count = sum(row["attempt_count"] > 1 for row in rows)
     validations = [row["receipt"].get("validation", {}) for row in rows]

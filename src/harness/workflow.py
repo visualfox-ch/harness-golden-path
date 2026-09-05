@@ -5,13 +5,14 @@ validierte YAML ab. Diese Definitionen sind Harness-intern: sie hängen an
 keiner Panda-Canvas-Fähigkeit (P0-6 hat bestätigt, dass Panda-Canvas keine
 Live-Event-Bindung bietet) — die Darstellung erfolgt separat (P2-1, v0-Pfad).
 """
+
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Annotated, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import Field, model_validator
 
 from .contracts import StrictModel
 from .policy import PolicyError
@@ -50,16 +51,22 @@ class WorkflowNode(StrictModel):
     autonomy_level: AutonomyLevel
     protected_side_effect: bool = False
     allowed_tools: list[Annotated[str, Field(min_length=1, max_length=80)]]
-    allowed_model_roles: list[Annotated[str, Field(min_length=1, max_length=80)]] = []
-    routing_policy_class: Annotated[str, Field(min_length=1, max_length=80)] | None = None
+    allowed_model_roles: list[Annotated[str, Field(min_length=1, max_length=80)]] = (
+        Field(default_factory=list)
+    )
+    routing_policy_class: Annotated[str, Field(min_length=1, max_length=80)] | None = (
+        None
+    )
     input_schema: Annotated[str, Field(min_length=1, max_length=80)]
     output_schema: Annotated[str, Field(min_length=1, max_length=80)]
-    required_artifacts: list[Annotated[str, Field(min_length=1, max_length=80)]] = []
+    required_artifacts: list[Annotated[str, Field(min_length=1, max_length=80)]] = (
+        Field(default_factory=list)
+    )
     limits: WorkflowLimits
     transitions: WorkflowTransitions
 
     @model_validator(mode="after")
-    def approval_nodes_are_a4_and_protected(self) -> "WorkflowNode":
+    def approval_nodes_are_a4_and_protected(self) -> WorkflowNode:
         if self.autonomy_level == "A4" and not self.protected_side_effect:
             raise ValueError(
                 f"node '{self.node_id}' is A4 (approval-gated) but not marked "
@@ -77,7 +84,7 @@ class WorkflowDefinition(StrictModel):
     nodes: list[WorkflowNode]
 
     @model_validator(mode="after")
-    def validate_graph(self) -> "WorkflowDefinition":
+    def validate_graph(self) -> WorkflowDefinition:
         ids = [n.node_id for n in self.nodes]
         if len(ids) != len(set(ids)):
             raise ValueError("duplicate node_id in workflow definition")
@@ -103,7 +110,9 @@ class WorkflowError(Exception):
     pass
 
 
-def load_workflow(path: Path | None = None, *, name: str | None = None) -> WorkflowDefinition:
+def load_workflow(
+    path: Path | None = None, *, name: str | None = None
+) -> WorkflowDefinition:
     if path is None:
         if name is None:
             raise WorkflowError("either path or name is required")
@@ -113,7 +122,9 @@ def load_workflow(path: Path | None = None, *, name: str | None = None) -> Workf
     return WorkflowDefinition.model_validate(raw)
 
 
-def validate_against_routing_policy(workflow: WorkflowDefinition, routing_policy: dict) -> None:
+def validate_against_routing_policy(
+    workflow: WorkflowDefinition, routing_policy: dict
+) -> None:
     """Jede referenzierte routing_policy_class muss in der Policy existieren."""
     classes = routing_policy.get("classes", {})
     for node in workflow.nodes:
