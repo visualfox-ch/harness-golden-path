@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
@@ -153,9 +153,9 @@ def test_circuit_opens_blocks_release_and_closes_after_probe_success(
 
     gated_card = card_factory()
     store.create_task(gated_card)
-    assert store.claim(
-        gated_card.task_id, "hermes_local", "circuit-gated-worker"
-    ) is None
+    assert (
+        store.claim(gated_card.task_id, "hermes_local", "circuit-gated-worker") is None
+    )
 
     with store._connect() as conn:
         conn.execute(
@@ -171,9 +171,7 @@ def test_circuit_opens_blocks_release_and_closes_after_probe_success(
     assert len(released) == 3
 
     probe = gated_card
-    assert store.claim(
-        probe.task_id, "hermes_local", "half-open-probe"
-    ) is not None
+    assert store.claim(probe.task_id, "hermes_local", "half-open-probe") is not None
     store.submit_receipt(
         ResultReceiptV1(
             task_id=probe.task_id,
@@ -193,9 +191,7 @@ def test_circuit_opens_blocks_release_and_closes_after_probe_success(
     assert circuit["failure_count"] == 0
 
 
-def test_resilience_api_and_cockpit_expose_real_recovery_state(
-    store, card_factory
-):
+def test_resilience_api_and_cockpit_expose_real_recovery_state(store, card_factory):
     card = _claimed_task(store, card_factory)
     store.report_failure(_report(card, FailureClass.PERMANENT))
     client = TestClient(create_app(store))
@@ -241,7 +237,7 @@ def test_worker_cannot_poison_an_unrelated_circuit(store, card_factory):
 
 def test_rate_limit_retry_honors_retry_after(store, card_factory):
     card = _claimed_task(store, card_factory)
-    before = datetime.now(timezone.utc)
+    before = datetime.now(UTC)
 
     decision = store.report_failure(
         _report(

@@ -24,15 +24,13 @@ def _bearer(value):
     return {"Authorization": f"Bearer {value}"}
 
 
-def test_nas_token_is_limited_to_its_role(
-    store, card_factory, tmp_path, monkeypatch
-):
+def test_nas_token_is_limited_to_its_role(store, card_factory, tmp_path, monkeypatch):
     client, _, _ = _secured_client(store, tmp_path, monkeypatch)
     assert client.get("/health").status_code == 200
     assert client.post("/v1/tasks", json={}).status_code == 401
-    assert client.post(
-        "/v1/tasks", json={}, headers=_bearer("w" * 48)
-    ).status_code == 403
+    assert (
+        client.post("/v1/tasks", json={}, headers=_bearer("w" * 48)).status_code == 403
+    )
 
     card = card_factory(
         owner_role=ExecutorRole.HERMES_NAS,
@@ -95,13 +93,16 @@ def test_token_rotation_revokes_old_worker_token_immediately(
         json=card.model_dump(mode="json"),
         headers=_bearer("o" * 48),
     )
-    assert client.get(
-        f"/v1/tasks/{card.task_id}", headers=_bearer("w" * 48)
-    ).status_code == 200
+    assert (
+        client.get(f"/v1/tasks/{card.task_id}", headers=_bearer("w" * 48)).status_code
+        == 200
+    )
     worker.write_text("n" * 48, encoding="utf-8")
-    assert client.get(
-        f"/v1/tasks/{card.task_id}", headers=_bearer("w" * 48)
-    ).status_code == 401
-    assert client.get(
-        f"/v1/tasks/{card.task_id}", headers=_bearer("n" * 48)
-    ).status_code == 200
+    assert (
+        client.get(f"/v1/tasks/{card.task_id}", headers=_bearer("w" * 48)).status_code
+        == 401
+    )
+    assert (
+        client.get(f"/v1/tasks/{card.task_id}", headers=_bearer("n" * 48)).status_code
+        == 200
+    )

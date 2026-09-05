@@ -73,9 +73,9 @@ def test_task_route_cannot_drift_from_central_policy(card_factory):
 
 def test_task_authority_rejects_panda_status_writeback(card_factory, tmp_path):
     authority = load_task_authority_policy()
-    authority["projections"]["pandaos_session_tasks"][
-        "runtime_status_writeback"
-    ] = "allowed"
+    authority["projections"]["pandaos_session_tasks"]["runtime_status_writeback"] = (
+        "allowed"
+    )
     path = tmp_path / "task-authority.yaml"
     path.write_text(yaml.safe_dump(authority), encoding="utf-8")
     with pytest.raises(PolicyError, match="must not write runtime status"):
