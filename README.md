@@ -59,6 +59,9 @@ der resultierende Snapshot wurde erfolgreich als neuer Chat sowie als
 Status-/KPI-Karten ausgeliefert. Der vollständige, timestamped Nachweis steht
 unter [P2-1 Live Operations](evidence/p2-1-live-operations-2026-09-03.md).
 
+Der P2-3-Proof (unknown side-effect → Recovery Card, kein Blind-Retry) wurde am
+2026-09-05 als Evidenz-Fixture archiviert: [P2-3 Unknown Side-Effect Proof](evidence/p2-3-unknown-side-effect-proof-2026-09-03.md).
+
 ### Proof-Fixture-Enforcement (ab 2026-09-05)
 
 Proof-Fixtures in der Betriebs-DB müssen in ihrer TaskCard
