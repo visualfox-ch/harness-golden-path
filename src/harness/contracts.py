@@ -4,9 +4,10 @@ Pydantic v2 mit extra="forbid": kein unbekanntes Feld hat versteckten Einfluss.
 Statusmenge und Transitionstabelle folgen der Zielarchitektur (2026-09-03);
 Statuswechsel erfolgen ausschliesslich über den Store, nie aus freiem Text.
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Annotated, Literal
 from uuid import UUID, uuid4
@@ -15,7 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 
 def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class StrictModel(BaseModel):
@@ -56,7 +57,11 @@ TRANSITIONS: dict[TaskStatus, set[TaskStatus]] = {
         TaskStatus.RETRY_WAIT,
         TaskStatus.AWAITING_DECISION,
     },
-    TaskStatus.REVIEW: {TaskStatus.AWAITING_APPROVAL, TaskStatus.BLOCKED, TaskStatus.DONE},
+    TaskStatus.REVIEW: {
+        TaskStatus.AWAITING_APPROVAL,
+        TaskStatus.BLOCKED,
+        TaskStatus.DONE,
+    },
     TaskStatus.AWAITING_APPROVAL: {TaskStatus.DONE, TaskStatus.BLOCKED},
     TaskStatus.BLOCKED: {TaskStatus.READY, TaskStatus.CANCELLED},
     TaskStatus.FAILED: {TaskStatus.READY, TaskStatus.CANCELLED},
@@ -195,9 +200,11 @@ class ModelRouting(StrictModel):
     api_metered_fallback: Literal["forbidden"] = "forbidden"
 
     @model_validator(mode="after")
-    def enforce_oauth_only(self) -> "ModelRouting":
+    def enforce_oauth_only(self) -> ModelRouting:
         if ProviderClass.API_METERED in self.permitted_provider_classes:
-            raise ValueError("metered API provider class is forbidden by current policy")
+            raise ValueError(
+                "metered API provider class is forbidden by current policy"
+            )
         return self
 
 
@@ -207,9 +214,7 @@ class TaskCardV1(StrictModel):
     correlation_id: UUID = Field(default_factory=uuid4)
     title: Annotated[str, Field(min_length=8, max_length=160)]
     project: Annotated[str, Field(pattern=r"^[a-zA-Z0-9._-]{2,80}$")]
-    task_class: Annotated[
-        str, Field(pattern=r"^[a-z][a-z0-9_]{2,79}$")
-    ] = "docs_change"
+    task_class: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{2,79}$")] = "docs_change"
     data_classification: DataClassification = DataClassification.INTERNAL
     projection_kind: ProjectionKind = ProjectionKind.OPERATIONAL
     owner_role: ExecutorRole
@@ -224,8 +229,11 @@ class TaskCardV1(StrictModel):
     created_at: datetime = Field(default_factory=utcnow)
 
     @model_validator(mode="after")
-    def restrict_long_running_tasks_to_nas(self) -> "TaskCardV1":
-        if self.budget.max_runtime_minutes > 480 and self.owner_role != ExecutorRole.HERMES_NAS:
+    def restrict_long_running_tasks_to_nas(self) -> TaskCardV1:
+        if (
+            self.budget.max_runtime_minutes > 480
+            and self.owner_role != ExecutorRole.HERMES_NAS
+        ):
             raise ValueError("only hermes_nas tasks may run longer than 480 minutes")
         return self
 
@@ -252,7 +260,7 @@ class CostReceipt(StrictModel):
     quota_status: Literal["available", "partial", "unavailable", "unknown"] = "unknown"
 
     @model_validator(mode="after")
-    def forbid_metered(self) -> "CostReceipt":
+    def forbid_metered(self) -> CostReceipt:
         if self.provider_class == ProviderClass.API_METERED:
             raise ValueError("api_metered receipts are forbidden by current policy")
         return self
@@ -279,21 +287,19 @@ class FailureReportV1(StrictModel):
     failure_class: FailureClass
     reason: Annotated[str, Field(min_length=10, max_length=2000)]
     side_effect_state: SideEffectState = SideEffectState.NONE
-    circuit_key: Annotated[
-        str, Field(pattern=r"^[a-zA-Z0-9._:/-]{3,120}$")
-    ] | None = None
+    circuit_key: Annotated[str, Field(pattern=r"^[a-zA-Z0-9._:/-]{3,120}$")] | None = (
+        None
+    )
     retry_after_seconds: Annotated[int, Field(ge=0, le=86400)] | None = None
     created_at: datetime = Field(default_factory=utcnow)
 
     @model_validator(mode="after")
-    def require_unknown_side_effect(self) -> "FailureReportV1":
+    def require_unknown_side_effect(self) -> FailureReportV1:
         if (
             self.failure_class == FailureClass.UNCERTAIN_SIDE_EFFECT
             and self.side_effect_state != SideEffectState.UNKNOWN
         ):
-            raise ValueError(
-                "uncertain_side_effect requires side_effect_state=unknown"
-            )
+            raise ValueError("uncertain_side_effect requires side_effect_state=unknown")
         return self
 
 
@@ -319,7 +325,7 @@ class EventEnvelopeV1(StrictModel):
     created_at: datetime
 
     @model_validator(mode="after")
-    def enforce_registered_payload_shape(self) -> "EventEnvelopeV1":
+    def enforce_registered_payload_shape(self) -> EventEnvelopeV1:
         expected = EVENT_PAYLOAD_FIELDS[self.event_type]
         actual = set(self.payload)
         missing = expected - actual

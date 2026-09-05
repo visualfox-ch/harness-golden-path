@@ -1,4 +1,5 @@
 """Deterministische, fail-closed Prüfung des vollständigen Policy-Bundles."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -66,7 +67,10 @@ def assert_route_allowed(
             raise PolicyError(f"model_ref '{ref}' is api_metered and forbidden")
         if model.get("connection_status") != "verified":
             raise PolicyError(f"model_ref '{ref}' is not a verified route")
-        if ProviderClass(model["provider_class"]) not in routing.permitted_provider_classes:
+        if (
+            ProviderClass(model["provider_class"])
+            not in routing.permitted_provider_classes
+        ):
             raise PolicyError(
                 f"model_ref '{ref}' has provider_class outside permitted_provider_classes"
             )

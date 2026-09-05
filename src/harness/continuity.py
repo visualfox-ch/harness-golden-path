@@ -1,4 +1,5 @@
 """Deterministic state manifests and the isolated P2-6 recovery exercise."""
+
 from __future__ import annotations
 
 import argparse
@@ -8,6 +9,7 @@ import os
 import time
 from datetime import datetime
 from decimal import Decimal
+from typing import Any, LiteralString, cast
 from urllib.parse import urlparse
 from uuid import UUID
 
@@ -22,7 +24,6 @@ from .contracts import (
     TaskCardV1,
 )
 from .store import Store
-
 
 TABLE_KEYS = {
     "agent_tasks": "task_id",
@@ -39,7 +40,7 @@ EXPIRED_TASK_ID = UUID("26000000-0000-4000-8000-000000000002")
 DONE_TASK_ID = UUID("26000000-0000-4000-8000-000000000003")
 
 
-def _normalise(value):
+def _normalise(value: Any) -> Any:
     if isinstance(value, (datetime, UUID)):
         return str(value)
     if isinstance(value, Decimal):
@@ -58,11 +59,12 @@ def state_manifest(store: Store) -> dict:
     payload: dict[str, list[dict]] = {}
     with store._connect() as conn:
         conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
-        database = conn.execute("SELECT current_database() AS value").fetchone()[
-            "value"
-        ]
+        agg = conn.execute("SELECT current_database() AS value").fetchone()
+        assert agg is not None
+        database = agg["value"]
         for table, key in TABLE_KEYS.items():
-            rows = conn.execute(f"SELECT * FROM {table} ORDER BY {key}").fetchall()
+            query = cast(LiteralString, f"SELECT * FROM {table} ORDER BY {key}")
+            rows = conn.execute(query, ()).fetchall()
             payload[table] = [_normalise(dict(row)) for row in rows]
 
     canonical = json.dumps(
@@ -129,9 +131,7 @@ def seed_fixture(store: Store) -> dict:
 
 def claim_crash_fixture(store: Store) -> dict:
     """Claim the fixture before the outer exercise kills this worker process."""
-    claimed = store.claim(
-        EXPIRED_TASK_ID, "hermes_nas", "p2-6-crashed-worker", 0
-    )
+    claimed = store.claim(EXPIRED_TASK_ID, "hermes_nas", "p2-6-crashed-worker", 0)
     if claimed is None:
         raise RuntimeError("P2-6 crash fixture was not claimable")
     return {
@@ -146,9 +146,7 @@ def recover_expired_fixture(store: Store) -> dict:
     """Expire the restored lease and prove that a blind retry is impossible."""
     expired = store.expire_leases()
     second_expiry = store.expire_leases()
-    blind_retry = store.claim(
-        EXPIRED_TASK_ID, "hermes_nas", "p2-6-blind-retry", 10
-    )
+    blind_retry = store.claim(EXPIRED_TASK_ID, "hermes_nas", "p2-6-blind-retry", 10)
     task = store.get_task(EXPIRED_TASK_ID)
     snapshot = store.resilience_snapshot()
     matching_cards = [
@@ -190,9 +188,7 @@ def _require_fixture_host(command: str, store: Store) -> None:
         "recover": {"restore"},
     }[command]
     if host not in allowed_hosts:
-        raise SystemExit(
-            f"{command} is restricted to hosts {sorted(allowed_hosts)!r}"
-        )
+        raise SystemExit(f"{command} is restricted to hosts {sorted(allowed_hosts)!r}")
 
 
 def main() -> None:

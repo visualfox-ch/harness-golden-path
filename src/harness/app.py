@@ -1,4 +1,5 @@
 """FastAPI-Oberfläche des Golden-Path-Harness (Kern-API-Subset)."""
+
 from __future__ import annotations
 
 from uuid import UUID
@@ -7,15 +8,6 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
-from .contracts import (
-    ApprovalCardV1,
-    FailureReportV1,
-    ResultReceiptV1,
-    TaskCardV1,
-    TaskStatus,
-)
-from .cockpit import CockpitSnapshot
-from .metrics import QualityMetricsSnapshot
 from .auth import (
     AuthenticationError,
     AuthorizationError,
@@ -23,6 +15,14 @@ from .auth import (
     TokenAuthorizer,
     required_scope,
 )
+from .cockpit import CockpitSnapshot
+from .contracts import (
+    ApprovalCardV1,
+    FailureReportV1,
+    ResultReceiptV1,
+    TaskCardV1,
+)
+from .metrics import QualityMetricsSnapshot
 from .policy import (
     PolicyError,
     assert_task_allowed,
@@ -34,7 +34,7 @@ from .policy import (
 )
 from .projection import PandaProjectionBatch, ProjectionCursorError
 from .resilience import ResilienceDecision, ResilienceSnapshot
-from .store import NotFoundError, OwnershipError, Store, StoreError, TransitionError
+from .store import NotFoundError, Store, StoreError
 
 
 class StrictBody(BaseModel):
@@ -247,13 +247,17 @@ def _enforce_nas_worker(request: Request, owner_role: str, worker_id: str) -> No
     if principal.role != "hermes_nas":
         return
     if owner_role != "hermes_nas" or not worker_id.startswith("svc-hermes-nas:"):
-        raise HTTPException(status_code=403, detail="NAS identity is read-only worker scoped")
+        raise HTTPException(
+            status_code=403, detail="NAS identity is read-only worker scoped"
+        )
 
 
 def _enforce_nas_task_access(request: Request, task: dict) -> None:
     principal = _principal(request)
     if principal.role == "hermes_nas" and task["owner_role"] != "hermes_nas":
-        raise HTTPException(status_code=403, detail="NAS identity cannot read other roles")
+        raise HTTPException(
+            status_code=403, detail="NAS identity cannot read other roles"
+        )
 
 
 app = create_app()
