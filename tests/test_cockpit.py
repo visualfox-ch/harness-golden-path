@@ -4,7 +4,11 @@ from harness.app import create_app
 from harness.contracts import (
     Artifacts,
     CostReceipt,
+    FailureClass,
+    FailureReportV1,
+    ProjectionKind,
     ResultReceiptV1,
+    SideEffectState,
     ValidationResult,
 )
 from harness.policy import load_catalog, load_routing_policy
@@ -50,15 +54,11 @@ def test_cockpit_aggregates_persisted_worker_receipt_and_artifact_data(
         )
     )
 
-    panels = store.cockpit_snapshot(
-        load_catalog(), load_routing_policy()
-    ).panels
+    panels = store.cockpit_snapshot(load_catalog(), load_routing_policy()).panels
 
     assert panels.workers.status == "available"
     assert panels.workers.data["workers"][0]["owner_instance"] == "worker-cockpit"
-    assert panels.model_oauth.data["observed_models"] == [
-        "anthropic_oauth_reasoner"
-    ]
+    assert panels.model_oauth.data["observed_models"] == ["anthropic_oauth_reasoner"]
     assert panels.model_oauth.data["live_oauth_probe"] == "unavailable"
     assert panels.quota_cost.status == "partial"
     assert panels.quota_cost.data["incremental_cost_chf"] == 0.0
@@ -67,9 +67,7 @@ def test_cockpit_aggregates_persisted_worker_receipt_and_artifact_data(
     assert panels.knowledge.status == "available"
     assert panels.knowledge.data["artifact_count"] == 2
     assert panels.flow.data["status_counts"]["review"] == 1
-    assert panels.routing.data["observed_provider_classes"] == [
-        "subscription_oauth"
-    ]
+    assert panels.routing.data["observed_provider_classes"] == ["subscription_oauth"]
 
 
 def test_cockpit_reports_expired_active_lease_as_risk(store, card_factory):
@@ -77,12 +75,32 @@ def test_cockpit_reports_expired_active_lease_as_risk(store, card_factory):
     store.create_task(card)
     store.claim(card.task_id, "hermes_local", "expired-worker", lease_minutes=0)
 
-    risks = store.cockpit_snapshot(
-        load_catalog(), load_routing_policy()
-    ).panels.risks
+    risks = store.cockpit_snapshot(load_catalog(), load_routing_policy()).panels.risks
 
     assert risks.status == "partial"
     assert risks.data["expired_active_lease_count"] == 1
+
+
+def test_cockpit_excludes_proof_fixture_recovery_from_risks(store, card_factory):
+    card = card_factory(projection_kind=ProjectionKind.EVIDENCE)
+    store.create_task(card)
+    store.claim(card.task_id, "hermes_local", "proof-worker")
+    store.report_failure(
+        FailureReportV1(
+            task_id=card.task_id,
+            correlation_id=card.correlation_id,
+            worker_instance="proof-worker",
+            failure_class=FailureClass.UNCERTAIN_SIDE_EFFECT,
+            side_effect_state=SideEffectState.UNKNOWN,
+            reason="Controlled proof: unknown side-effect boundary hit.",
+        )
+    )
+
+    risks = store.cockpit_snapshot(load_catalog(), load_routing_policy()).panels.risks
+
+    assert risks.status == "available"
+    assert risks.data["recovery_count"] == 0
+    assert risks.data["open_recovery_card_count"] == 0
 
 
 def test_cockpit_api_returns_all_defined_panels(store):
