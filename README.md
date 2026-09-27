@@ -20,7 +20,7 @@ einmal vollständig und ehrlich instrumentiert zu durchlaufen.
 
 ```bash
 uv venv && uv pip install -e '.[dev]'
-docker run -d --name harness-pg -p 5433:5432 \
+docker run -d --name harness-pg -p 5433:5432 --memory=1g \
   -e POSTGRES_USER=harness -e POSTGRES_PASSWORD=harness_dev -e POSTGRES_DB=harness \
   postgres:16
 pytest -q
