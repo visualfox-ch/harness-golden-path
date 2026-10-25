@@ -33,6 +33,20 @@ uvicorn harness.app:app --port 8787
 (z. B. `at` blockiert strenge SQL-Validierer und `psql`-basierte Tooling) — es gilt
 `AS task`, `AS t`, `AS rr`, nie `AS at`.
 
+**Tests ohne PostgreSQL:** Diese Testdateien laufen vollständig durch, auch wenn
+keine Datenbank erreichbar ist (`HARNESS_DATABASE_URL` zeigt auf einen
+geschlossenen Port):
+
+- `tests/test_contracts.py`
+- `tests/test_governance_policy.py`
+- `tests/test_nas_watcher.py`
+- `tests/test_readme.py`
+- `tests/test_workflow.py`
+
+```bash
+HARNESS_DATABASE_URL=postgresql://harness:harness_dev@localhost:1/harness_test pytest -q tests/test_contracts.py tests/test_governance_policy.py tests/test_nas_watcher.py tests/test_readme.py tests/test_workflow.py
+```
+
 ## Golden Path Status
 
 Der erste End-to-End-Durchlauf (DEV-001, 2026-09-03) hat den vollständigen
