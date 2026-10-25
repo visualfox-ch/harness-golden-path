@@ -30,3 +30,22 @@ The read-only event-to-PandaOS source, mapping, ordering, drift detection, and
 snapshot rebuild are implemented in P2-7. The PandaOS-hosted consumer remains
 separate because PandaOS exposes no external session-task API to the Harness.
 This contract does not claim that bidirectional synchronization exists.
+
+## Source and tests
+
+The contract is enforced by:
+
+- `src/harness/policy.py`: `load_task_authority_policy` loads
+  `policies/task-authority.yaml`, and `assert_task_allowed` rejects task
+  creation if `control_harness` is no longer the authoritative system or if
+  PandaOS runtime status writeback is not `forbidden`.
+- `src/harness/app.py`: loads the policy at startup and passes it to
+  `assert_task_allowed` on task creation.
+- `src/harness/projection.py`: the one-way Harness-to-PandaOS task projection
+  described in "Current implementation boundary".
+
+It is checked by:
+
+- `tests/test_governance_policy.py`, including
+  `test_task_authority_rejects_panda_status_writeback`.
+- `tests/test_projection.py`, for the one-way projection.
