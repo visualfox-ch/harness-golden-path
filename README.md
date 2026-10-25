@@ -109,6 +109,14 @@ TaskCards tragen eine `task_class` und `data_classification`. Der Harness
 verwirft Tasks, wenn Rolle, zentrale Route, Datenklasse oder erforderliche
 Approval-Aktion nicht zusammenpassen. Secrets sind nur als Referenzen erlaubt.
 
+Die Policy-Dateien:
+
+- [agent-policy.yaml](policies/agent-policy.yaml): Executoren sowie erlaubte Task- und Datenklassen.
+- [data-classification.yaml](policies/data-classification.yaml): Datenklassifikationen und erlaubte Provider-Klassen.
+- [model-catalog.yaml](policies/model-catalog.yaml): Modelle mit verifizierten Verbindungsnachweisen.
+- [routing-policy.yaml](policies/routing-policy.yaml): Routing-Defaults und die Route je Taskklasse.
+- [task-authority.yaml](policies/task-authority.yaml): massgebliches System, akzeptierte Eingaben und massgebliche Runtime-Felder.
+
 Der [Task Authority Contract](docs/task-authority-contract.md) legt fest:
 Harness ist die einzige Runtime-Wahrheit; PandaOS-Tasks sind eine Projektion
 ohne Status-Writeback.
