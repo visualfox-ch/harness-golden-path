@@ -17,3 +17,11 @@ The CI contract tests also prove that persisted traces parse as `EventEnvelopeV1
 and that the PandaOS projection exposes only its documented display-safe field
 set. Objectives, scopes, receipt bodies, event payloads, and credentials remain
 outside the projection.
+
+## Source and tests
+
+- `src/harness/contracts.py` defines `HarnessEventType`, `EVENT_PAYLOAD_FIELDS`
+  and `EventEnvelopeV1`.
+- `src/harness/store.py` validates each event as `EventEnvelopeV1` before
+  appending it to `agent_events`.
+- `tests/test_event_contracts.py` checks the contract.
