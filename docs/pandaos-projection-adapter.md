@@ -45,3 +45,12 @@ and rebuild behavior are implemented here. PandaOS does not currently publish
 an external session-task API for this service to call. The small consumer that
 invokes PandaOS's internal `session_task_create` and `session_task_update`
 actions therefore remains a PandaOS-hosted integration step.
+
+## Source and tests
+
+- `src/harness/projection.py`: projection mapping, `plan_projection` and
+  `build_projection_batch`.
+- `src/harness/store.py`: `pandaos_projection_snapshot`, the read at an event
+  cutoff.
+- `src/harness/app.py`: the `GET /v1/projections/pandaos` route.
+- `tests/test_projection.py`: tests for the planner and the endpoint.
