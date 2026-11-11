@@ -126,6 +126,11 @@ dafür einen read-only Incremental-/Rebuild-Feed mit Event-Cursor bereit. Das
 deterministische Consumer-Mapping erkennt veraltete Events und Drift, liefert
 aber keinen PandaOS→Harness-Statuspfad.
 
+Der [Event Contract v1](docs/event-contract-v1.md) legt fest: Jedes
+Harness-Event wird gegen die registrierten Event-Typen und Payload-Felder
+validiert, bevor es an `agent_events` angehängt wird; nicht registrierte Events
+sowie fehlende oder zusätzliche Payload-Felder schlagen fail-closed fehl.
+
 ## Operations API (read-only)
 
 Diese Endpunkte liefern Betriebsdaten; sie verändern weder Tasks noch
