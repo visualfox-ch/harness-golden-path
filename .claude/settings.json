@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Edit",
+      "Write",
+      "Bash(factory/bin/*)",
+      "Bash(./factory/bin/*)",
+      "Bash(bash factory/checks.sh*)",
+      "Bash(cd * && git status*)",
+      "Bash(cd * && git diff*)",
+      "Bash(cd * && git log*)",
+      "Bash(cd * && git add *)",
+      "Bash(cd * && git commit -m *)",
+      "Bash(cd * && git push -u origin factory/*)",
+      "Bash(cd * && git rev-parse *)",
+      "Bash(cd * && ls *)",
+      "Bash(cd * && .venv/bin/*)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git fetch*)",
+      "Bash(git worktree list*)",
+      "Bash(gh pr view *)",
+      "Bash(gh pr create --draft *)"
+    ],
+    "deny": [
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git push * main*)",
+      "Bash(gh api *)",
+      "Bash(gh auth *)",
+      "Bash(gh repo delete *)",
+      "Bash(rm -rf *)",
+      "Read(.env*)"
+    ]
+  }
+}
