@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi.testclient import TestClient
 
 from harness.app import create_app
@@ -6,12 +8,18 @@ from harness.contracts import (
     FailureClass,
     FailureReportV1,
     ProjectionKind,
+    ProviderClass,
     ResultReceiptV1,
     ValidationResult,
 )
 
 
-def _submit_receipt(store, card, worker_id: str, outcome: str = "completed"):
+def _submit_receipt(
+    store,
+    card,
+    worker_id: str,
+    outcome: Literal["completed", "failed", "blocked"] = "completed",
+):
     store.create_task(card)
     store.claim(card.task_id, "hermes_local", worker_id)
     return store.submit_receipt(
@@ -23,7 +31,7 @@ def _submit_receipt(store, card, worker_id: str, outcome: str = "completed"):
             summary="Persisted evidence for routing and quality metric aggregation.",
             validation=ValidationResult(lint="passed", tests="passed"),
             cost_receipt=CostReceipt(
-                provider_class="subscription_oauth",
+                provider_class=ProviderClass.SUBSCRIPTION_OAUTH,
                 model_ref="anthropic_oauth_reasoner",
                 quota_status="partial",
             ),
@@ -71,7 +79,7 @@ def test_metrics_aggregate_first_pass_retry_and_route_evidence(store, card_facto
             summary="Completed after the persisted lease recovery path.",
             validation=ValidationResult(lint="passed", tests="failed"),
             cost_receipt=CostReceipt(
-                provider_class="subscription_oauth",
+                provider_class=ProviderClass.SUBSCRIPTION_OAUTH,
                 model_ref="anthropic_oauth_reasoner",
                 quota_status="partial",
             ),

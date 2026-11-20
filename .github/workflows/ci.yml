@@ -34,7 +34,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e '.[dev]'
-      - run: pip install 'ruff>=0.16.6'
+      - run: pip install 'ruff>=0.16.6' 'pyright>=1.1.411'
       - run: ruff check .
       - run: ruff format --check .
+      - run: pyright --pythonpath "$(which python)"
       - run: pytest -q

@@ -135,6 +135,7 @@ def test_lease_expiry_creates_read_only_recovery_card(store, card_factory):
 def test_circuit_opens_blocks_release_and_closes_after_probe_success(
     store, card_factory
 ):
+    decision = None
     for index in range(3):
         worker = f"circuit-worker-{index}"
         card = _claimed_task(store, card_factory, worker=worker)
@@ -147,6 +148,7 @@ def test_circuit_opens_blocks_release_and_closes_after_probe_success(
             )
         )
     snapshot = store.resilience_snapshot()
+    assert decision is not None
     assert decision.circuit_state == "open"
     assert snapshot.circuits[0]["failure_count"] == 3
     assert snapshot.circuits[0]["state"] == "open"
