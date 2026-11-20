@@ -29,6 +29,8 @@ uvicorn harness.app:app --port 8787
 
 `harness_dev` ist ein lokales Wegwerf-Passwort für den Dev-Container, kein Secret.
 
+**Auth:** Das Container-Image startet mit `HARNESS_AUTH_REQUIRED=1` (fail-closed, ohne Token-Dateien startet die App nicht). Lokale Entwicklung ohne Container bleibt ohne Auth; netzwerkexponierte Läufe müssen die Token-Dateien setzen.
+
 **SQL-Konvention:** Tabellen-Aliase nie mit reservierten Schlüsselwörtern benennen
 (z. B. `at` blockiert strenge SQL-Validierer und `psql`-basierte Tooling) — es gilt
 `AS task`, `AS t`, `AS rr`, nie `AS at`.

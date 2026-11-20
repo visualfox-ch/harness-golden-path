@@ -1,3 +1,6 @@
+from pathlib import Path
+
+import pytest
 from fastapi.testclient import TestClient
 
 from harness.app import create_app
@@ -106,3 +109,17 @@ def test_token_rotation_revokes_old_worker_token_immediately(
         client.get(f"/v1/tasks/{card.task_id}", headers=_bearer("n" * 48)).status_code
         == 200
     )
+
+
+def test_auth_required_without_token_files_fails_closed(monkeypatch):
+    monkeypatch.setenv("HARNESS_AUTH_REQUIRED", "1")
+    monkeypatch.delenv("HARNESS_ORCHESTRATOR_TOKEN_FILE", raising=False)
+    monkeypatch.delenv("HARNESS_NAS_WORKER_TOKEN_FILE", raising=False)
+    with pytest.raises(RuntimeError, match="token files are not configured"):
+        TokenAuthorizer.from_environment()
+
+
+def test_container_image_defaults_to_required_auth():
+    dockerfile = (Path(__file__).resolve().parents[1] / "Dockerfile").read_text()
+    runtime = dockerfile.split("FROM python:3.12-slim AS runtime")[1]
+    assert "HARNESS_AUTH_REQUIRED=1" in runtime
