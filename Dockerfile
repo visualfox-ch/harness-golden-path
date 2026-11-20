@@ -1,14 +1,14 @@
 FROM python:3.12-slim AS builder
 
-ENV VIRTUAL_ENV=/venv
-RUN python -m venv "$VIRTUAL_ENV"
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+ENV UV_PROJECT_ENVIRONMENT=/venv \
+    UV_PYTHON_DOWNLOADS=never
+RUN pip install --no-cache-dir 'uv==0.12.3'
 
 WORKDIR /build
-COPY pyproject.toml README.md ./
+COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir .
+# Exactly the versions pinned in uv.lock (runtime dependencies only).
+RUN uv sync --locked --no-dev --no-editable
 
 FROM python:3.12-slim AS runtime
 
