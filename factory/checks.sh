@@ -24,7 +24,8 @@ export HARNESS_DATABASE_URL="postgresql://harness:harness_dev@127.0.0.1:$PORT/ha
 
 # As CI: install from pyproject (uv.lock is not tracked on main).
 [ -d .venv ] || "$UV" venv --quiet --python 3.12
-"$UV" pip install --quiet -e '.[dev]' 'ruff>=0.16.6'
+"$UV" pip install --quiet -e '.[dev]' 'ruff>=0.16.6' 'pyright>=1.1.411'
 .venv/bin/ruff check .
 .venv/bin/ruff format --check .
+.venv/bin/pyright
 .venv/bin/pytest -q

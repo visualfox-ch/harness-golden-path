@@ -24,7 +24,9 @@ def _event(event_type: HarnessEventType, payload: dict[str, object]) -> EventEnv
 
 @pytest.mark.parametrize("event_type", list(HarnessEventType))
 def test_every_registered_event_type_has_an_exact_payload_contract(event_type):
-    payload = {field: f"evidence-{field}" for field in EVENT_PAYLOAD_FIELDS[event_type]}
+    payload: dict[str, object] = {
+        field: f"evidence-{field}" for field in EVENT_PAYLOAD_FIELDS[event_type]
+    }
 
     assert _event(event_type, payload).event_type == event_type
 
@@ -35,7 +37,7 @@ def test_event_contract_rejects_unknown_event_types_and_payload_drift():
             event_id=1,
             task_id=uuid4(),
             correlation_id=uuid4(),
-            event_type="unregistered_event",
+            event_type="unregistered_event",  # pyright: ignore[reportArgumentType]
             payload={},
             created_at=utcnow(),
         )

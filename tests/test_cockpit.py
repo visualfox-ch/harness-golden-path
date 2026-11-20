@@ -7,6 +7,7 @@ from harness.contracts import (
     FailureClass,
     FailureReportV1,
     ProjectionKind,
+    ProviderClass,
     ResultReceiptV1,
     SideEffectState,
     ValidationResult,
@@ -47,7 +48,7 @@ def test_cockpit_aggregates_persisted_worker_receipt_and_artifact_data(
             ),
             validation=ValidationResult(lint="passed", tests="passed"),
             cost_receipt=CostReceipt(
-                provider_class="subscription_oauth",
+                provider_class=ProviderClass.SUBSCRIPTION_OAUTH,
                 model_ref="anthropic_oauth_reasoner",
                 quota_status="partial",
             ),

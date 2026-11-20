@@ -1,10 +1,17 @@
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
 import pytest
 from pydantic import ValidationError
 
 from harness.contracts import Budget, ExecutorRole, TaskCardV1
-from harness.nas_watcher import ClaimConflict, NasWatcher, WorkerError
+from harness.nas_watcher import (
+    ClaimConflict,
+    HarnessClient,
+    NasWatcher,
+    PublicGitHubProbe,
+    WorkerError,
+)
 
 
 class FakeClient:
@@ -52,8 +59,8 @@ def test_watcher_claims_heartbeats_reports_and_completes():
     ticks = iter([now, now, now + timedelta(minutes=5)])
     output = []
     watcher = NasWatcher(
-        client=client,
-        probe=FakeProbe(),
+        client=cast(HarnessClient, client),
+        probe=cast(PublicGitHubProbe, FakeProbe()),
         task_id="3bdb6591-3b72-4f79-a232-bd022f534d8c",
         worker_id="svc-hermes-nas:p2-4",
         end_at=now + timedelta(minutes=1),
@@ -74,8 +81,8 @@ def test_watcher_resumes_only_its_own_active_task():
     client.claimed = True
     now = datetime(2026, 9, 3, tzinfo=UTC)
     watcher = NasWatcher(
-        client=client,
-        probe=FakeProbe(),
+        client=cast(HarnessClient, client),
+        probe=cast(PublicGitHubProbe, FakeProbe()),
         task_id="3bdb6591-3b72-4f79-a232-bd022f534d8c",
         worker_id="svc-hermes-nas:p2-4",
         end_at=now,
@@ -95,14 +102,14 @@ def test_local_tasks_cannot_request_seven_day_budget(card_factory):
 def test_resume_rejects_task_owned_by_someone_else():
     client = FakeClient()
     client.claimed = True
-    client.get_task = lambda _: {
+    client.get_task = lambda _: {  # pyright: ignore[reportAttributeAccessIssue]
         "owner_instance": "svc-hermes-nas:other",
         "status": "claimed",
     }
     now = datetime(2026, 9, 3, tzinfo=UTC)
     watcher = NasWatcher(
-        client=client,
-        probe=FakeProbe(),
+        client=cast(HarnessClient, client),
+        probe=cast(PublicGitHubProbe, FakeProbe()),
         task_id="3bdb6591-3b72-4f79-a232-bd022f534d8c",
         worker_id="svc-hermes-nas:p2-4",
         end_at=now,

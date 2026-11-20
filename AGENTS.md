@@ -21,7 +21,7 @@ port in its prompt; default 8787).
 
 ## Validation
 
-`bash factory/checks.sh` runs `ruff check .`, `ruff format --check .` and
+`bash factory/checks.sh` runs `ruff check .`, `ruff format --check .`, `pyright` and
 `pytest -q` against a throwaway Postgres. It must pass before review.
 
 ## Conventions
