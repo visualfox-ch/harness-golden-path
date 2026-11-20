@@ -22,9 +22,8 @@ done
 PORT="$("$DOCKER" port "$NAME" 5432/tcp | head -1 | sed 's/.*://')"
 export HARNESS_DATABASE_URL="postgresql://harness:harness_dev@127.0.0.1:$PORT/harness"
 
-# As CI: install from pyproject (uv.lock is not tracked on main).
-[ -d .venv ] || "$UV" venv --quiet --python 3.12
-"$UV" pip install --quiet -e '.[dev]' 'ruff>=0.16.6' 'pyright>=1.1.411'
+# As CI: install exactly what uv.lock pins.
+"$UV" sync --quiet --locked --extra dev --python 3.12
 .venv/bin/ruff check .
 .venv/bin/ruff format --check .
 .venv/bin/pyright
