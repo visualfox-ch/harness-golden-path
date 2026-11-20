@@ -8,7 +8,7 @@ event log. See `README.md`.
 ## Setup of a fresh checkout
 
 ```bash
-uv venv --python 3.12 && uv pip install -e '.[dev]' 'ruff>=0.16.6'
+uv sync --locked --extra dev --python 3.12
 ```
 
 Tests need PostgreSQL 16. `factory/checks.sh` starts a throwaway container and

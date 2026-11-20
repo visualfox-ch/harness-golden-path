@@ -2,7 +2,6 @@
 __pycache__/
 *.egg-info/
 .pytest_cache/
-uv.lock
 .DS_Store
 /factory/jobs/
 /.worktrees/
